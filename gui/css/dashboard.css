@@ -40,6 +40,14 @@ body, html {
     color: #0097a7;
 }
 
+/* Отключить обводку для редактируемых элементов */
+[contenteditable]:focus {
+    outline: none !important;
+    box-shadow: none !important;
+    border: none !important;
+}
+
+
 .icon-btn {
     background: #fff;
     border: none;

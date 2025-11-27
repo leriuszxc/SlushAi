@@ -1,233 +1,4 @@
-<!DOCTYPE html>
-<html lang="ru">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Лекция по мат.анализу</title>
-    <link rel="stylesheet" href="css/dashboard.css">
-    <!-- Иконки -->
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700&display=swap" rel="stylesheet">
-    <!-- MathJax для формул -->
-    <script src="https://polyfill.io/v3/polyfill.min.js?features=es6"></script>
-    <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
-</head>
-<body>
-    
-    <!-- Верхняя панель -->
-    <header class="top-bar">
-        <div class="logo-area">
-            <div class="main-logo">Слуш<span class="logo-accent">Ай</span></div>
-            <button class="icon-btn"><i class="fa-regular fa-folder"></i></button>
-            <button class="icon-btn"><i class="fa-regular fa-bookmark"></i></button>
-        </div>
-        <div class="tools-area">
-    <button class="tool-btn">
-        <i class="fa-regular fa-file-lines"></i>
-    </button>
-
-    <!-- ЛУПА ДЛЯ ПОИСКА -->
-    <button class="tool-btn"
-        id="doc-search-toggle"
-        title="Поиск по тексту"
-        onclick="toggleDocSearchPanel()">
-    <i class="fa-solid fa-magnifying-glass"></i>
-</button>
-
-
-    <!-- МАЛЕНЬКАЯ СТРОКА ПОИСКА ПОД ЛУПОЙ -->
-    <div class="doc-search-panel" id="doc-search-panel">
-        <input type="text"
-               id="doc-search-input"
-               class="doc-search-input"
-               placeholder="Поиск по тексту…" />
-
-        <div class="doc-search-controls">
-    <span class="doc-search-counter" id="doc-search-counter">0/0</span>
-
-    <button class="doc-search-arrow" id="doc-search-prev" title="Предыдущее совпадение">▲</button>
-    <button class="doc-search-arrow" id="doc-search-next" title="Следующее совпадение">▼</button>
-
-    <button class="doc-search-close" id="doc-search-close" title="Закрыть поиск">
-        <i class="fa-solid fa-xmark"></i>
-    </button>
-</div>
-    </div>
-
-    <button class="tool-btn">
-        <i class="fa-solid fa-volume-high"></i>
-    </button>
-    <button class="tool-btn">
-        <i class="fa-solid fa-book-open"></i>
-    </button>
-    <button class="tool-btn">
-        <i class="fa-regular fa-bookmark"></i>
-    </button>
-
-    <!-- Кнопка копирования -->
-    <button class="tool-btn copy-btn" title="Скопировать весь текст">
-        <i class="fa-regular fa-copy"></i>
-    </button>
-    </div>
-</header>
-
-    <div class="main-layout">
-        <!-- Боковая панель (Sidebar) -->
-        <aside class="sidebar">
-            <div class="sidebar-header">
-                <div class="folder-actions">
-                    <!-- Кнопка для создания ПАПКИ -->
-                    <i class="fa-regular fa-folder" id="add-folder-btn" title="Создать новую папку" style="cursor: pointer;"></i>
-                    
-                    <!-- Кнопка для создания ФАЙЛА -->
-                    <i class="fa-solid fa-plus" id="add-file-global-btn" title="Создать новый файл" style="cursor: pointer; margin-left: 10px;"></i>
-                
-                    <!-- Кнопка ФИЛЬТРА -->
-                    <i class="fa-solid fa-filter" id="filter-btn" title="Фильтр" style="cursor: pointer; margin-left: 10px;"></i>
-                </div>
-            </div>
-            
-            <div class="folder-list" id="folder-container">
-                <!-- Папки добавляются JS -->
-            </div>
-
-            <div class="sidebar-footer">
-                <div class="search-bar">
-                    <i class="fa-solid fa-magnifying-glass"></i>
-                    <input type="text" placeholder="Поиск">
-                </div>
-                <button class="help-btn">?</button>
-                <button class="settings-btn"><i class="fa-solid fa-gear"></i></button>
-            </div>
-        </aside>
-
-        <!-- Основной контент -->
-        <main class="content-area">
-            <div class="lecture-meta">
-                <span class="date" id="current-date">--.--.----</span>
-                <span class="separator">/</span>
-                <span class="meta-title" id="meta-folder-name">Категория</span>
-            </div>
-            <!-- Заголовок -->
-            <h1 id="lecture-title">Кажется что-то пошло не так... :(</h2>
-
-            <!-- Текст -->
-            <section class="lecture-content" id="lecture-text">
-                <p style="color: #888;">Выберите файл слева или создайте новый.</p>
-            </section>
-
-            <button class="floating-download-btn">
-                <i class="fa-solid fa-download"></i>
-            </button>
-        </main>
-    </div>
-    <!-- Окно настроек -->
-    <div class="settings-overlay" id="settings-overlay">
-        <div class="settings-panel">
-            <!-- Левая колонка -->
-            <div class="settings-left">
-                <div class="settings-left-header">
-                    <span class="settings-logo">СлушАй</span>
-                    <button class="settings-close-btn" id="settings-close-btn">
-                        <i class="fa-solid fa-xmark"></i>
-                    </button>
-                </div>
-
-                <div class="settings-left-title">Настройки</div>
-
-                <button class="settings-nav-item active" data-section="text-ai">
-                    <div class="settings-nav-main">Выбор AI для текста</div>
-                    <div class="settings-nav-secondary" id="nav-text-ai-current">
-                        Gemma 3n
-                    </div>
-                </button>
-
-                <button class="settings-nav-item" data-section="audio-ai">
-                    <div class="settings-nav-main">Выбор AI для аудио</div>
-                    <div class="settings-nav-secondary">
-                        audio-nemotron-ru
-                    </div>
-                </button>
-
-                <button class="settings-nav-item" data-section="theme">
-                    <div class="settings-nav-main">Тема приложения</div>
-                    <div class="settings-nav-secondary">
-                        Светлая тема
-                    </div>
-                </button>
-
-                <button class="settings-nav-item" data-section="prompts">
-                    <div class="settings-nav-main">Редактирование промптов AI</div>
-                    <div class="settings-nav-secondary">
-                        Основные промпты
-                    </div>
-                </button>
-
-                <button class="settings-nav-item" data-section="model-params">
-                    <div class="settings-nav-main">Настройка параметров AI</div>
-                    <div class="settings-nav-secondary">
-                        Параметры текстовой модели
-                    </div>
-                </button>
-            </div>
-
-            <!-- Правая колонка -->
-            <div class="settings-right">
-                <div class="settings-model-list" id="settings-detail-content">
-                    <h3 class="settings-right-title" id="settings-detail-title">
-                        Текстовые модели
-                    </h3>
-                    <p class="settings-right-subtitle" id="settings-detail-subtitle">
-                        Выберите модель, с которой будут генерироваться конспекты и ответы в приложении.
-                    </p>
-                    <button class="settings-model-card active" data-model="Gemma 3n">
-                        <span class="settings-model-name">1. Gemma 3n</span>
-                        <span class="settings-model-tag">Рекомендуемая</span>
-                        <span class="settings-model-desc">
-                            Сбалансирована по скорости и качеству. Подходит для конспектов и задач по вузу.
-                        </span>
-                    </button>
-
-                    <button class="settings-model-card" data-model="Lamma 3.1">
-                        <span class="settings-model-name">2. Lamma 3.1</span>
-                        <span class="settings-model-desc">
-                            Более «разговорная» модель. Удобно объясняет теорию и примеры.
-                        </span>
-                    </button>
-
-                    <button class="settings-model-card" data-model="Qwen 3">
-                        <span class="settings-model-name">3. Qwen 3</span>
-                        <span class="settings-model-desc">
-                            Даёт развёрнутые технические ответы и код, но может работать чуть медленнее.
-                        </span>
-                    </button>
-                </div>
-                <div class="settings-load-model-text">
-                    <button class="settings-primary-btn" id="settings-apply-model-text">
-                        Загрузить модель
-                    </button>
-
-                    <p class="settings-note">
-                        Пока что выбор модели сохраняется только внутри этого окна и не влияет на реальный backend.
-                    </p>
-                </div>
-                <div class="settings-load-model-audio">
-                    <button class="settings-primary-btn" id="settings-apply-model-audio">
-                        Загрузить модель
-                    </button>
-
-                    <p class="settings-note">
-                        Пока что выбор модели сохраняется только внутри этого окна и не влияет на реальный backend.
-                    </p>
-                </div>
-            </div>
-        </div>
-    </div>
-    <!-- /Окно настроек -->
-    <script src="js/sidebar.js"></script>
-<script>
+// <!-- /Окно настроек -->
 document.addEventListener('DOMContentLoaded', () => {
     // --- КНОПКА ВЫХОДА (если появится) ---
     const closeAppBtn = document.querySelector('.close-app-btn');
@@ -243,6 +14,97 @@ document.addEventListener('DOMContentLoaded', () => {
         const now = new Date();
         dateEl.textContent = now.toLocaleDateString('ru-RU');
     }
+    
+    const editModeBtn = document.querySelector('.edit-mode-btn');
+    const contentArea = document.getElementById('lecture-text') || document.querySelector('.lecture-content');
+    const titleArea = document.getElementById('lecture-title');
+    let saveTimeout;
+    
+    // Функция автосохранения
+    function triggerAutoSave() {
+        clearTimeout(saveTimeout);
+        // Ждем 500 мс после окончания ввода
+        saveTimeout = setTimeout(() => {
+            if (!contentArea || !titleArea) return;
+
+            const currentFolder = contentArea.dataset.currentFolder;
+            const currentFile = contentArea.dataset.currentFile;
+
+            if (!currentFolder || !currentFile) return;
+
+            const newTitle = titleArea.innerText.trim();
+            const newContent = contentArea.innerText;
+
+            if (window.pywebview && window.pywebview.api) {
+                console.log("Saving...");
+                window.pywebview.api.save_file(currentFolder, currentFile, newTitle, newContent)
+                    .then(res => {
+                        if (res.status === 'ok') {
+                            console.log('Saved.');
+                            // Если поменяли имя файла
+                            if (res.new_name && res.new_name !== currentFile) {
+                                contentArea.dataset.currentFile = res.new_name;
+                                updateSidebarItemName(currentFile, res.new_name);
+                            }
+                        } else {
+                            console.error('Ошибка сохранения:', res.message);
+                        }
+                    })
+                    .catch(err => console.error(err));
+            }
+        }, 500);
+    }
+
+    function updateSidebarItemName(oldName, newName) {
+        const activeItem = document.querySelector('.sub-list li.active');
+        if (activeItem) {
+            const nameSpan = activeItem.querySelector('.file-name');
+            if (nameSpan && nameSpan.textContent === oldName) {
+                nameSpan.textContent = newName;
+            }
+        }
+    }
+
+    // Включаем слушатели ввода
+    if (titleArea) titleArea.addEventListener('input', triggerAutoSave);
+    if (contentArea) contentArea.addEventListener('input', triggerAutoSave);
+
+    // Сразу включаем режим редактирования
+    if (contentArea && titleArea) {
+        contentArea.contentEditable = 'true';
+        titleArea.contentEditable = 'true';
+
+        // Меняем иконку и title у кнопки (режим редактирования)
+        if (editModeBtn) {
+            const icon = editModeBtn.querySelector('i');
+            icon.className = 'fa-solid fa-book-open';
+            editModeBtn.title = 'Режим чтения';
+        }
+    }
+
+    if (editModeBtn && contentArea && titleArea) {
+        editModeBtn.addEventListener('click', () => {
+            const isEditable = contentArea.isContentEditable;
+
+            contentArea.contentEditable = (!isEditable).toString();
+            titleArea.contentEditable = (!isEditable).toString();
+
+            if (!isEditable) {
+                // После клика — включаем редактирование
+                const icon = editModeBtn.querySelector('i');
+                icon.className = 'fa-solid fa-book-open';
+                editModeBtn.title = 'Режим чтения';
+            } else {
+                // После клика — включаем чтение
+                const icon = editModeBtn.querySelector('i');
+                icon.className = 'fa-solid fa-pencil';
+                editModeBtn.title = 'Режим редактирования';
+                contentArea.focus();
+            }
+        });
+    }
+
+
 
     // --- КОПИРОВАНИЕ ТЕКСТА ---
     const copyBtn = document.querySelector('.copy-btn');
@@ -730,8 +592,7 @@ function closeDocSearch() {
         });
     }
 });
-</script>
-<script>
+
 function toggleDocSearchPanel() {
     const panel = document.getElementById('doc-search-panel');
     const input = document.getElementById('doc-search-input');
@@ -748,6 +609,3 @@ function toggleDocSearchPanel() {
         }
     }
 }
-</script>
-</body>
-</html>
