@@ -15,12 +15,12 @@ function updateCarousel() {
     const offset = -currentIndex * 100;
     track.style.transform = `translateX(${offset}%)`;
     
-    // Update indicators
+    // Обновление индикаторов
     indicators.forEach((indicator, index) => {
         indicator.classList.toggle('active', index === currentIndex);
     });
     
-    // Update description
+    // Обновление описания
     document.querySelector('.description p').innerHTML = descriptions[currentIndex];
 }
 

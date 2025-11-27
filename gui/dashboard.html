@@ -5,13 +5,13 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Лекция по мат.анализу</title>
     <link rel="stylesheet" href="css/dashboard.css">
+    <link rel="stylesheet" href="fonts/Montserrat.css">
+
     <!-- Иконки -->
-    <!-- <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="fonts/fontawesome-free-7.1.0-web/css/all.min.css">
+
     <!-- MathJax для формул -->
-    <!-- <script src="https://polyfill.io/v3/polyfill.min.js?features=es6"></script> -->
+    <!-- <script src="https://polyfill.io/v3/polyfill.min.js?features=es6"></script>
     <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script> -->
 </head>
 <body>
@@ -80,28 +80,27 @@
         <aside class="sidebar">
             <div class="sidebar-header">
                 <div class="folder-actions">
-                    <!-- Кнопка для создания ПАПКИ -->
-                    <i class="fa-regular fa-folder" id="add-folder-btn" title="Создать новую папку" style="cursor: pointer;"></i>
+                    <!-- Кнопка: Создать ПАПКУ -->
+                    <i class="fa-regular fa-folder" id="btn-create-folder" title="Создать папку (в корне)" style="cursor: pointer;"></i>
                     
-                    <!-- Кнопка для создания ФАЙЛА -->
-                    <i class="fa-solid fa-plus" id="add-file-global-btn" title="Создать новый файл" style="cursor: pointer; margin-left: 10px;"></i>
+                    <!-- Кнопка: Создать ФАЙЛ -->
+                    <i class="fa-solid fa-plus" id="btn-create-file" title="Создать файл" style="cursor: pointer; margin-left: 10px;"></i>
                 
-                    <!-- Кнопка ФИЛЬТРА -->
-                    <i class="fa-solid fa-filter" id="filter-btn" title="Фильтр" style="cursor: pointer; margin-left: 10px;"></i>
+                    <!-- Кнопка: СОРТИРОВКА (А-Я / Я-А) -->
+                    <i class="fa-solid fa-arrow-down-a-z" id="btn-sort" title="Сортировка" style="cursor: pointer; margin-left: 10px;"></i>
                 </div>
             </div>
             
-            <div class="folder-list" id="folder-container">
-                <!-- Папки добавляются JS -->
-            </div>
+            <!-- Контейнер для дерева файлов -->
+            <div class="folder-list" id="file-system-container"></div>
 
             <div class="sidebar-footer">
                 <div class="search-bar">
                     <i class="fa-solid fa-magnifying-glass"></i>
-                    <input type="text" placeholder="Поиск">
+                    <input type="text" placeholder="Поиск" id="sidebar-search">
                 </div>
                 <button class="help-btn">?</button>
-                <button class="settings-btn"><i class="fa-solid fa-gear"></i></button>
+                <button class="settings-btn" id="open-settings"><i class="fa-solid fa-gear"></i></button>
             </div>
         </aside>
 
@@ -228,6 +227,12 @@
         </div>
     </div>
     <script src="scripts/sidebar.js"></script>
+
+    <script src="scripts/search.js"></script>
+    <script src="scripts/settings_dashboard.js"></script>
+    <script src="scripts/utils.js"></script>
+    <script src="scripts/editor_tools.js"></script>
     <script src="scripts/dashboard.js"></script>
+    <script src="scripts/zoom.js"></script>
 </body>
 </html>

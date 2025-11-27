@@ -5,8 +5,6 @@ body, html {
     width: 100%;
     overflow: hidden;
     font-family: 'Montserrat', sans-serif;
-
-    /* более белый центр и плавный голубой градиент по краям */
     background-color: #e3f6ff;
     background-image: radial-gradient(
         circle at center,
@@ -17,7 +15,6 @@ body, html {
     );
     color: #333;
 }
-
 
 .background-greetings {
     position: relative;
@@ -31,12 +28,10 @@ body, html {
     opacity: 0.9;
 }
 
-/* Script fonts */
 #hej, #salam, #aloha, #ciao, #hi, #hello, #bonjour, #konnichiwa {
     font-family: 'Great Vibes', cursive;
 }
 
-/* Positioning */
 #hej { top: 10%; left: 15%; }
 #salam { top: 30%; left: 10%; }
 #aloha { top: 30%; left: 28%; font-size: 2.8em; }
@@ -84,7 +79,6 @@ body, html {
     box-shadow: 0 4px 8px rgba(0,0,0,0.1);
     transition: all 0.2s ease-in-out;
 }
-
 .start-button:hover {
     box-shadow: 0 6px 12px rgba(0,0,0,0.15);
     transform: translateY(-2px);

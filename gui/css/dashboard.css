@@ -1,12 +1,136 @@
-/* Общие стили */
 body, html {
-    margin: 0;
     padding: 0;
+    margin: 0;
     height: 100%;
     width: 100%;
     font-family: 'Montserrat', sans-serif;
     color: #333;
-    overflow: hidden;
+    overflow: hidden !important;
+    display: flex;
+    flex-direction: column;
+}
+
+/* Стили для контейнера */
+.folder-list {
+    flex: 1;
+    overflow-y: scroll;
+    padding: 10px;
+    color: #333;
+}
+.folder-list::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+    background-color: transparent;
+}
+.folder-list::-webkit-scrollbar-thumb {
+    background-color: #ccc;
+    border-radius: 4px;
+    border: 2px solid transparent;
+    background-clip: content-box;
+}
+
+/* Элемент дерева (строка) */
+.fs-item {
+    display: flex;
+    align-items: center;
+    padding: 6px 10px;
+    cursor: pointer;
+    border-radius: 6px;
+    transition: background 0.2s;
+    user-select: none;
+    margin-bottom: 2px;
+}
+.fs-item:hover {
+    background-color: rgba(0, 0, 0, 0.05);
+}
+.fs-item.active {
+    background-color: #eef2ff;
+    color: #4f46e5;
+    font-weight: 500;
+}
+.fs-item i {
+    margin-right: 8px;
+    color: #666;
+    width: 20px;
+    text-align: center;
+}
+.fs-item.file i {
+    color: #4f46e5;
+}
+.fs-item.drag-over {
+    border: 2px dashed #4f46e5;
+    background-color: rgba(79, 70, 229, 0.1);
+}
+
+/* Инпут для переименования */
+.fs-input {
+    border: 1px solid #4f46e5;
+    border-radius: 4px;
+    padding: 2px 5px;
+    font-family: inherit;
+    font-size: inherit;
+    outline: none;
+    width: 100%;
+    background: #fff;
+}
+
+/* Стрелочка раскрытия папки */
+.arrow-icon {
+    width: 12px;
+    height: 12px;
+    margin-right: 8px;
+    font-size: 0.8em;
+    color: #888;
+    transition: transform 0.3s ease;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.fs-item.open .arrow-icon {
+    transform: rotate(90deg);
+}
+
+/* Для файлов стрелку делаем невидимой, чтобы отступ сохранился */
+.fs-item.file .arrow-icon {
+    visibility: hidden;
+}
+
+.fs-item i.fa-folder, 
+.fs-item i.fa-folder-open, 
+.fs-item i.fa-file-lines {
+    margin-right: 8px;
+    color: #4f46e5;
+}
+
+/* Контекстное меню */
+.context-menu {
+    position: fixed;
+    z-index: 1000;
+    background: #fff;
+    border: 1px solid #ddd;
+    box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+    border-radius: 6px;
+    padding: 5px 0;
+    width: 150px;
+    display: none;
+}
+
+.context-menu-item {
+    padding: 8px 15px;
+    cursor: pointer;
+    font-size: 14px;
+    color: #333;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+.context-menu-item:hover {
+    background-color: #f5f5f5;
+    color: #d32f2f;
+}
+.context-menu-item i {
+    width: 16px;
 }
 
 /* Верхняя панель */
@@ -17,7 +141,9 @@ body, html {
     padding-left: 12px;
     height: 55px;
     border-bottom: 1px solid #eee;
-    position: relative;          /* ДОБАВИЛИ */
+    position: relative;
+    flex-shrink: 0; /* Пожалуйста, не убирайте эту штуку, решал баг 2 часа */
+    /* Благодаря ей шапка не сужается при появлении в main ползунка скрола */
 }
 
 .logo-area {
@@ -47,7 +173,6 @@ body, html {
     border: none !important;
 }
 
-
 .icon-btn {
     background: #fff;
     border: none;
@@ -65,7 +190,6 @@ body, html {
     box-shadow: 0 2px 5px rgba(0,0,0,0.05);
     transition: background 0.2s;
 }
-
 .icon-btn:hover {
     background: #f0f0f0;
 }
@@ -82,9 +206,9 @@ body, html {
 .tools-area {
     display: flex;
     align-items: center;
-    gap: 15px; /* Отступ между всеми кнопками */
+    gap: 15px;
     padding-right: 40px;
-    position: relative;      /* ВАЖНО для позиционирования строки поиска */
+    position: relative; /* ВАЖНО для позиционирования строки поиска */
 }
 
 .tool-btn {
@@ -99,21 +223,23 @@ body, html {
     justify-content: center;
     transition: color 0.2s;
 }
-
 .tool-btn:hover {
     color: #0097a7;
 }
 
-/* Основная раскладка */
 .main-layout {
+    max-height: 100%;
     display: flex;
-    height: calc(100vh - 45px);
+    flex-grow: 1;       
+    height: auto;       
+    min-height: 0;
+    overflow: hidden;
 }
-
 :root {
     --sidebar-width: 200px;
 }
-/* Боковая панель (Sidebar) */
+
+/* Боковая панель */
 .sidebar {
     margin-left: 10px;
     background-color: #fdfdfd;
@@ -121,9 +247,10 @@ body, html {
     display: flex;
     flex-direction: column;
     padding-top: 10px;
-    padding-bottom: 10px;
+    height: auto;
+    margin-bottom: 10px;
+    align-self: stretch; 
     border-radius: 20px;
-    height: calc(100% - 15px);
     box-sizing: border-box;
     min-width: var(--sidebar-width); 
     max-width: 350px;
@@ -156,7 +283,6 @@ body, html {
     border-radius: 6px;
     transition: background 0.2s;
 }
-
 .folder-header:hover {
     background-color: #edf2f7;
 }
@@ -170,11 +296,6 @@ body, html {
     font-weight: 500;
     color: #777;
     font-size: 0.95em;
-}
-
-.arrow-icon {
-    font-size: 0.8em;
-    transition: transform 0.3s ease;
 }
 
 /* Сворачивание */
@@ -201,11 +322,9 @@ body, html {
     color: #333;
     transition: background 0.2s;
 }
-
 .sub-list li:hover {
     background-color: #eaeef3;
 }
-
 .sub-list li.active {
     background-color: #ffffff;
     font-weight: 600;
@@ -218,7 +337,6 @@ body, html {
     display: flex;
     align-items: center;
     gap: 4px;
-    padding-right: 5px;
 }
 
 .search-bar {
@@ -265,27 +383,24 @@ body, html {
 }
 
 .content-area {
-    flex-grow: 3;
+    flex-grow: 1;
     padding-top: 5px;
     padding-left: 20px;
-    overflow-y: auto;
+    overflow-y: scroll;
     background-color: #fff;
     position: relative;
-
-    /* Включаем Flexbox для центрирования колонки */
+    scroll-behavior: smooth; 
+    padding-bottom: 50vh; 
+    box-sizing: border-box;
     display: flex;
     flex-direction: column;
-    align-items: center; /* Это заставляет весь контент выстроиться по центру экрана */
+    align-items: center;
 }
 .lecture-meta {
     padding-bottom: 50px;
 }
 
-.lecture-content {
-    position: relative;
-}
 .content-area .lecture-meta,
-.content-area #lecture-title,
 .content-area .lecture-content {
     width: 100%;        
     max-width: 800px;      
@@ -294,10 +409,23 @@ body, html {
 
 .content-area .lecture-content {
     text-align: left;
-    font-size: 18px;       /* Размер шрифта как в читалках */
+    font-size: 18px;
 }
 
-/* Стиль для даты/мета-информации, чтобы она была красивой в центре */
+.content-area::-webkit-scrollbar {
+    width: 8px;              /* Ширина вертикального скролла */
+    height: 1px;             /* Высота горизонтального */
+    background-color: transparent; /* Фон под бегунком  */
+}
+/* Бегунок */
+.content-area::-webkit-scrollbar-thumb {
+    background-color: #ccc;  /* Цвет бегунка */
+    border-radius: 4px;      /* Скругление краев */
+    border: 2px solid transparent; /* Отступ от края */
+    background-clip: content-box;  /* Чтобы бордер работал как отступ */
+}
+
+/* Стиль для даты/мета-информации */
 .content-area .lecture-meta {
     display: flex;
     justify-content: center;
@@ -313,8 +441,13 @@ body, html {
     }
     
     .content-area .lecture-content {
-        font-size: 16px;    /* Уменьшаем текст, если стало совсем тесно (ваше условие "150") */
+        font-size: 16px;
     }
+}
+
+.lecture-content {
+    position: relative;
+    box-sizing: border-box;
 }
 
 .lecture-content p {
@@ -342,11 +475,11 @@ body, html {
     color: #333;
     transition: transform 0.2s;
 }
-
 .floating-download-btn:hover {
     transform: translateY(-3px);
     box-shadow: 0 6px 14px rgba(0,0,0,0.15);
 }
+
 .icon-btn-sm {
     background: none;
     border: none;
@@ -358,13 +491,11 @@ body, html {
     justify-content: center;
     color: #777;
 }
-
 .icon-btn-sm i {
     pointer-events: none; /* чтобы клики шли по кнопке, а не по иконке */
 }
-
 .icon-btn-sm:hover {
-    color: #d32f2f; /* при наведении краснеют, видно что это удаление */
+    color: #d32f2f;
 }
 
 .folder-actions {
@@ -372,8 +503,8 @@ body, html {
     gap: 6px;
     align-items: center;
 }
-/* === ОКНО НАСТРОЕК === */
 
+/* КНО НАСТРОЕК */
 .settings-overlay {
     position: fixed;
     inset: 0;
@@ -384,7 +515,6 @@ body, html {
     background: rgba(0, 0, 0, 0.15);
     backdrop-filter: blur(2px);
 }
-
 .settings-overlay.visible {
     display: flex;
 }
@@ -400,13 +530,11 @@ body, html {
     transform: translateX(-110%);
     transition: transform 0.25s ease-out;
 }
-
 .settings-overlay.visible .settings-panel {
     transform: translateX(0);
 }
 
 /* Левая колонка */
-
 .settings-left {
     width: 270px;
     border-right: 1px solid rgba(0, 0, 0, 0.05);
@@ -442,7 +570,6 @@ body, html {
     cursor: pointer;
     color: #555;
 }
-
 .settings-close-btn:hover {
     background: #e4e4e4;
 }
@@ -468,11 +595,9 @@ body, html {
     font-family: inherit;
     transition: background 0.15s ease, transform 0.08s ease;
 }
-
 .settings-nav-item:hover {
     background: rgba(31, 111, 235, 0.06);
 }
-
 .settings-nav-item.active {
     background: rgba(31, 111, 235, 0.10);
 }
@@ -488,7 +613,6 @@ body, html {
 }
 
 /* Правая колонка */
-
 .settings-right {
     flex: 1;
     padding: 22px 22px 24px;
@@ -530,12 +654,10 @@ body, html {
     transition: box-shadow 0.15s ease, transform 0.08s ease,
                 border-color 0.15s ease, background 0.15s ease;
 }
-
 .settings-model-card:hover {
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.06);
     transform: translateY(-1px);
 }
-
 .settings-model-card.active {
     border-color: #1f6feb;
     background: #f5f9ff;
@@ -574,7 +696,6 @@ body, html {
     box-shadow: 0 4px 10px rgba(31, 111, 235, 0.3);
     transition: transform 0.08s ease, box-shadow 0.15s ease, background 0.15s ease;
 }
-
 .settings-primary-btn:hover {
     background: #1856c0;
     box-shadow: 0 6px 16px rgba(31, 111, 235, 0.35);
@@ -597,38 +718,35 @@ body, html {
         display: none;
     }
 }
+
 /* Простейшая тёмная тема */
 body.theme-dark {
     background: #050816;
     color: #f5f5f5;
 }
-
 body.theme-dark .main-layout {
     background: #050816;
     color: #f5f5f5;
 }
-
 body.theme-dark .sidebar {
     background: #050816;
     border-right-color: rgba(255, 255, 255, 0.05);
 }
-
 body.theme-dark .content-area {
     background: #050816;
 }
-
 body.theme-dark .search-bar,
 body.theme-dark .sidebar-footer,
 body.theme-dark .lecture-card {
     background: rgba(15, 23, 42, 0.95);
     color: #f5f5f5;
 }
-/* === Поиск по документу (лупа сверху справа) === */
 
+/* Поиск по документу (кнопка сверху справа) */
 .doc-search-panel {
     position: absolute;
-    top: 130%;              /* под лупой */
-    right: 0;               /* привязываем к правому краю tools-area */
+    top: 130%;
+    right: 0;
     display: none;
     align-items: center;
     gap: 6px;
@@ -638,12 +756,7 @@ body.theme-dark .lecture-card {
     background: rgba(255, 255, 255, 0.96);
     box-shadow: 0 4px 16px rgba(0, 0, 0, 0.08);
     z-index: 900;
-    width: 470px;           /* чуть уже, чтобы точно влезло */
-}
-
-
-.doc-search-panel {
-    display: none;
+    width: 470px;
 }
 
 .doc-search-input {
@@ -651,11 +764,9 @@ body.theme-dark .lecture-card {
     outline: none;
     font-size: 1.05rem;
     background: transparent;
-
-    flex: 1;           /* инпут растягивается и ужимается */
-    min-width: 0;      /* важно, чтобы он позволял сжаться, иначе съедает место элементов справа */
+    flex: 1;
+    min-width: 0;
 }
-
 .doc-search-input::placeholder {
     color: #aaa;
 }
@@ -683,7 +794,6 @@ body.theme-dark .lecture-card {
     border-radius: 4px;
     color: #555;
 }
-
 .doc-search-arrow:hover {
     background: #eee;
 }
@@ -696,20 +806,19 @@ body.theme-dark .lecture-card {
     padding: 2px 6px;
     color: #777;
 }
-
 .doc-search-close:hover {
     color: #333;
 }
 
 
-/* Все совпадения */
+/* Поиск в тексте */
 .doc-highlight {
     background: #fff3a3;
     padding: 0 2px;
     border-radius: 3px;
 }
 
-/* Текущее совпадение */
+/* Текущее совпадение в тексте */
 .doc-highlight-current {
     background: #ffd54f;
     box-shadow: 0 0 0 1px #f6a623;
