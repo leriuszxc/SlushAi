@@ -85,6 +85,7 @@ class Api:
     def _scan_directory(self, path):
         items = []
         try:
+            path = os.path.join(DATA_DIR, name)
             if not os.path.exists(path):
                 return []
             
