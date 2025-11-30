@@ -4,10 +4,24 @@ import shutil
 import time
 import threading
 import json
+from faster_whisper import WhisperModel
+import subprocess
+import gc # Сборщик мусора
+import torch
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 DATA_DIR = os.path.join(BASE_DIR, 'docs')
 CONFIG_PATH = os.path.join('config', 'config.json')
+
+# Папки для аудио и json
+BD_AUDIO_DIR = os.path.join(BASE_DIR, 'BD', 'audio')
+BD_TRANSCRIPTION_DIR = os.path.join(BASE_DIR, 'BD', 'transcription')
+
+# Создаем папки для BD, если их нет, чтобы не было ошибок
+if not os.path.exists(BD_AUDIO_DIR):
+    os.makedirs(BD_AUDIO_DIR)
+if not os.path.exists(BD_TRANSCRIPTION_DIR):
+    os.makedirs(BD_TRANSCRIPTION_DIR)
 
 if not os.path.exists(DATA_DIR):
     os.makedirs(DATA_DIR)
@@ -40,6 +54,7 @@ class Api:
     def __init__(self):
         """ Загружаем конфиг при старте """
         self.config = ConfigManager.load()
+        self.window = None
 
     def get_settings(self):
         """ Получить все настройки """
@@ -349,6 +364,168 @@ class Api:
         except Exception as e:
             return {"status": "error", "message": str(e)}
         
+    def process_audio(self):
+        print("Backend: Start Audio Processing...")
+        
+        audio_file = os.path.join(BD_AUDIO_DIR, "audio2.mp3")
+        json_filename = "audio2.json"
+        output_json_file = os.path.join(BD_TRANSCRIPTION_DIR, json_filename)
+        
+        if not os.path.exists(audio_file):
+            return {"status": "error", "message": f"Файл не найден: {audio_file}"}
+
+        model = None # Инициализируем переменную для модели
+
+        try:
+            # 1. Получаем длительность аудио для расчета прогресса
+            audio_duration = 0
+            try:
+                # Используем ffprobe (убедитесь что он в PATH или укажите полный путь)
+                cmd = [
+                    'ffprobe', 
+                    '-v', 'error', 
+                    '-show_entries', 'format=duration', 
+                    '-of', 'default=noprint_wrappers=1:nokey=1', 
+                    audio_file
+                ]
+                # В Windows создание окна консоли можно скрыть флагом creationflags
+                startupinfo = None
+                if os.name == 'nt':
+                    startupinfo = subprocess.STARTUPINFO()
+                    startupinfo.dwFlags |= subprocess.STARTF_USESHOWWINDOW
+                
+                output = subprocess.check_output(cmd, startupinfo=startupinfo).decode().strip()
+                audio_duration = float(output)
+            except Exception as e:
+                print(f"Не удалось получить длительность аудио: {e}")
+
+            # 2. Загрузка модели (ТОЛЬКО СЕЙЧАС)
+            if self.window:
+                self.window.evaluate_js("updateTranscriptionProgress(0, 'Загрузка модели AI в память...')")
+            
+            print("Загрузка модели Whisper в память...")
+            # Если есть GPU, можно указать device="cuda", иначе "cpu"
+            model = WhisperModel("large-v3-turbo", device="cuda", compute_type="int8")
+            
+            print("Начало транскрибации...")
+            start_time = time.time()
+            
+            segments_generator, info = model.transcribe(
+                audio_file,
+                language="ru",
+                task="transcribe",
+                beam_size=6,
+                vad_filter=True,
+                condition_on_previous_text=True,
+            )
+
+            transcription_results = []
+            formatted_text = ""
+
+            # 3. Перебор сегментов и обновление прогресса
+            for segment in segments_generator:
+                segment_data = {
+                    "start": round(segment.start, 2),
+                    "end": round(segment.end, 2),
+                    "text": segment.text.strip()
+                }
+                transcription_results.append(segment_data)
+                
+                # Форматирование текста
+                m = int(segment.start // 60)
+                s = int(segment.start % 60)
+                time_str = f"{m:02}:{s:02}"
+                formatted_text += f"({time_str}) {segment.text.strip()}\n"
+                
+                # ОБНОВЛЕНИЕ UI
+                if self.window and audio_duration > 0:
+                    percent = int((segment.end / audio_duration) * 100)
+                    if percent > 100: percent = 100
+                    
+                    # Форматируем текущее время аудио
+                    current_m = int(segment.end // 60)
+                    current_s = int(segment.end % 60)
+                    status_text = f"Обработано: {current_m:02}:{current_s:02}"
+                    
+                    # Отправляем в JS
+                    self.window.evaluate_js(f"updateTranscriptionProgress({percent}, '{status_text}')")
+                
+                print(f"[{time_str}] {segment.text.strip()}")
+
+            elapsed = time.time() - start_time
+            
+            # Сохранение JSON (стандартная логика)
+            stats = { "processing_time": round(elapsed, 2), "audio_duration": round(audio_duration, 2) }
+            final_json_data = {
+                "meta": { "file_name": audio_file, "model": "large-v3-turbo", "stats": stats },
+                "segments": transcription_results
+            }
+            with open(output_json_file, "w", encoding="utf-8") as f:
+                json.dump(final_json_data, f, ensure_ascii=False, indent=4)
+            
+            return {"status": "ok", "content": formatted_text}
+
+        except Exception as e:
+            print(f"Ошибка Whisper: {e}")
+            return {"status": "error", "message": str(e)}
+
+        finally:
+            # 4. ОЧИСТКА ПАМЯТИ (Выполняется всегда, даже при ошибке)
+            print("Очистка памяти...")
+            if model:
+                del model
+            
+            # Принудительный запуск сборщика мусора Python
+            gc.collect()
+            
+            # Очистка видеопамяти (если использовалась CUDA)
+            try:
+                if torch.cuda.is_available():
+                    torch.cuda.empty_cache()
+                    print("CUDA cache cleared.")
+            except Exception:
+                pass
+            
+            print("Модель выгружена.")
+
+    def create_transcribed_file(self, filename, content):
+        """
+        Создает файл в КОРНЕ с заданным именем и контентом.
+        Если имя занято, добавляет (1), (2) и т.д.
+        """
+        try:
+            if not filename.endswith('.txt'):
+                filename += '.txt'
+            
+            # Логика уникального имени
+            base_name, ext = os.path.splitext(filename)
+            counter = 1
+            
+            final_name = filename
+            final_path = os.path.join(DATA_DIR, final_name)
+            
+            # Пока файл существует, увеличиваем счетчик
+            while os.path.exists(final_path):
+                final_name = f"{base_name} ({counter}){ext}"
+                final_path = os.path.join(DATA_DIR, final_name)
+                counter += 1
+            
+            # Записываем контент
+            with open(final_path, 'w', encoding='utf-8') as f:
+                f.write(content)
+                
+            # Возвращаем данные о новом файле (чтобы JS мог его открыть)
+            new_file_info = {
+                "id": final_path,
+                "name": final_name.replace('.txt', ''),
+                "type": "file"
+            }
+            
+            return {"status": "ok", "new_file": new_file_info}
+            
+        except Exception as e:
+            return {"status": "error", "message": str(e)}
+        
 def monitor_changes(window, api_instance):
     last_state_json = ""
     time.sleep(1)
@@ -367,6 +544,9 @@ def monitor_changes(window, api_instance):
 if __name__ == '__main__':
     api = Api()
     start_url = os.path.join(BASE_DIR, 'gui', 'dashboard.html')
+    # Создаем окно
     window = webview.create_window('СлушАй', url=start_url, js_api=api, maximized=True)
+    # ВАЖНО: Передаем ссылку на окно внутрь API, чтобы Python мог вызывать JS
+    api.window = window 
     threading.Thread(target=monitor_changes, args=(window, api), daemon=True).start()
     webview.start(debug=True)
