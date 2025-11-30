@@ -10,4 +10,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Инициализация поиска
     if (typeof initSearch === 'function') initSearch();
+
+    // Инициализация транскрибации
+    if (typeof initTranscription === 'function') initTranscription();
 });

@@ -322,6 +322,26 @@ document.addEventListener('DOMContentLoaded', async () => {
         input.onclick = (e) => e.stopPropagation();
     }
 
+    // Позволяет другим скриптам (transcription.js) запустить переименование файла по ID
+    window.editFileFromOutside = function(fileId) {
+        // 1. Находим элемент в DOM
+        const el = document.querySelector(`.fs-item[data-id="${fileId}"]`);
+        
+        // 2. Находим объект данных в массиве fileSystem (нужна функция поиска)
+        // Если findItemById у вас не глобальная, убедитесь, что она доступна здесь
+        const itemObj = findItemById(fileSystem, fileId);
+
+        if (el && itemObj) {
+            // Прокручиваем к файлу
+            el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            
+            // Запускаем режим редактирования (стандартная функция sidebar.js)
+            startEditing(el, itemObj);
+        } else {
+            console.warn("Не удалось найти файл для редактирования:", fileId);
+        }
+    };
+
     // Кнопка "Переименовать"
     const renameBtn = document.getElementById('ctx-rename');
     if (renameBtn) {

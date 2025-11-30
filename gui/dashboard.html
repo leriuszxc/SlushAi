@@ -15,6 +15,20 @@
     <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script> -->
 </head>
 <body>
+    <!-- Уведомление о транскрибации -->
+    <div id="transcription-toast" class="transcription-toast">
+        <div class="toast-content">
+            <div>
+                <span class="toast-title">Идёт создание транскрибации</span>
+                <span class="toast-timer" id="toast-timer">00:00</span>
+            </div>
+            <div class="toast-status" id="toast-status">Загрузка модели AI...</div>
+            <div class="toast-progress-container">
+                <div class="toast-progress-bar" id="toast-progress-bar"></div>
+            </div>
+        </div>
+    </div>
+
     <!-- Верхняя панель -->
     <header class="top-bar">
         <div class="logo-area">
@@ -227,7 +241,7 @@
         </div>
     </div>
     <script src="scripts/sidebar.js"></script>
-
+    <script src="scripts/transcription.js"></script>
     <script src="scripts/search.js"></script>
     <script src="scripts/settings_dashboard.js"></script>
     <script src="scripts/utils.js"></script>
