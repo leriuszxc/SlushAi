@@ -85,7 +85,6 @@ class Api:
     def _scan_directory(self, path):
         items = []
         try:
-            path = os.path.join(DATA_DIR, name)
             if not os.path.exists(path):
                 return []
             
@@ -115,7 +114,7 @@ class Api:
         """ Сортировка списка: папки выше файлов """
         items.sort(key=lambda x: (x['type'] != 'folder', x['name'].lower()))
         return items
-
+    
     def create_folder(self, name):
         """ 
         СОЗДАНИЕ ПАПКИ
