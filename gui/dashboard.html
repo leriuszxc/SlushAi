@@ -6,6 +6,7 @@
     <title>Лекция по мат.анализу</title>
     <link rel="stylesheet" href="css/dashboard.css">
     <link rel="stylesheet" href="fonts/Montserrat.css">
+    <link rel="stylesheet" href="css/editor_toolbar.css">
 
     <!-- Иконки -->
     <link rel="stylesheet" href="fonts/fontawesome-free-7.1.0-web/css/all.min.css">
@@ -27,6 +28,84 @@
                 <div class="toast-progress-bar" id="toast-progress-bar"></div>
             </div>
         </div>
+    </div>
+
+    <!-- ПЛАВАЮЩИЙ ТУЛБАР РЕДАКТИРОВАНИЯ -->
+    <div id="floating-toolbar" class="floating-toolbar">
+        
+        <!-- 1. Основные кнопки -->
+        <div id="ft-main-buttons" style="display: flex; gap: 4px; align-items: center;">
+            <!-- AI Magic -->
+            <button class="ft-btn" id="btn-ft-ai" title="Спросить AI">
+                <i class="fa-solid fa-wand-magic-sparkles"></i>
+            </button>
+
+            <div class="ft-divider"></div>
+
+            <!-- Меню форматирования -->
+            <button class="ft-btn" id="btn-ft-format" title="Форматирование текста">
+                <i class="fa-solid fa-pen-nib"></i> 
+                <!-- Или fa-font -->
+            </button>
+
+            <!-- Быстрые действия: Жирный -->
+            <button class="ft-btn" data-cmd="bold" title="Жирный">
+                <i class="fa-solid fa-bold"></i>
+            </button>
+            
+             <!-- Цвет текста (упрощенно - маркер) -->
+            <button class="ft-btn" data-cmd="backColor" data-val="yellow" title="Выделить желтым">
+                <i class="fa-solid fa-highlighter"></i>
+            </button>
+
+            <div class="ft-divider"></div>
+
+            <!-- Копипаст -->
+            <button class="ft-btn" id="btn-ft-cut" title="Вырезать">
+                <i class="fa-solid fa-scissors"></i>
+            </button>
+            <button class="ft-btn" id="btn-ft-copy" title="Копировать">
+                <i class="fa-regular fa-copy"></i>
+            </button>
+            <button class="ft-btn" id="btn-ft-paste" title="Вставить">
+                <i class="fa-solid fa-paste"></i>
+            </button>
+        </div>
+
+        <!-- 2. Поле ввода AI (скрыто по умолчанию) -->
+        <div id="ft-ai-container" class="ft-ai-input-container">
+            <!-- Сюда будет вставляться цитата выделенного текста -->
+            <div id="ft-ai-context" class="ft-ai-context"></div>
+            <div class="ft-ai-row">
+                <input type="text" id="ft-ai-input" class="ft-ai-input" placeholder="Задайте вопрос AI...">
+                <button class="ft-ai-btn" id="btn-ft-ai-send">
+                    <i class="fa-solid fa-arrow-up"></i>
+                </button>
+            </div>
+        </div>
+
+        <!-- 3. Подменю Форматирования (Выпадает вниз) -->
+        <div id="ft-submenu-format" class="ft-submenu">
+            <div class="ft-item" data-cmd="formatBlock" data-val="H1">
+                <i class="fa-solid fa-heading"></i> Заголовок 1
+            </div>
+            <div class="ft-item" data-cmd="formatBlock" data-val="H2">
+                <i class="fa-solid fa-heading" style="font-size: 0.9em;"></i> Заголовок 2
+            </div>
+            <div class="ft-item" data-cmd="insertUnorderedList">
+                <i class="fa-solid fa-list-ul"></i> Маркированный список
+            </div>
+            <div class="ft-item" data-cmd="italic">
+                <i class="fa-solid fa-italic"></i> Курсив
+            </div>
+            <div class="ft-item" data-cmd="underline">
+                <i class="fa-solid fa-underline"></i> Подчеркнутый
+            </div>
+            <div class="ft-item" data-cmd="removeFormat">
+                <i class="fa-solid fa-eraser"></i> Очистить стиль
+            </div>
+        </div>
+
     </div>
 
     <!-- Верхняя панель -->
@@ -248,5 +327,6 @@
     <script src="scripts/editor_tools.js"></script>
     <script src="scripts/dashboard.js"></script>
     <script src="scripts/zoom.js"></script>
+    <script src="scripts/editor_toolbar.js"></script>
 </body>
 </html>
