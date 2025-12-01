@@ -6,25 +6,174 @@ function initFloatingToolbar() {
     const contentArea = document.getElementById('lecture-text');
     const toolbar = document.getElementById('floating-toolbar');
     
-    // Элементы
+    // Элементы UI
     const submenuFormat = document.getElementById('ft-submenu-format');
     const mainButtons = document.getElementById('ft-main-buttons');
     const aiContainer = document.getElementById('ft-ai-container');
-    const aiInput = document.getElementById('ft-ai-input');
-    const aiContext = document.getElementById('ft-ai-context');
+    
+    // Элементы AI Views
+    const viewInput = document.getElementById('ft-ai-view-input');
+    const viewLoading = document.getElementById('ft-ai-view-loading');
+    const viewResponse = document.getElementById('ft-ai-view-response');
+    
+    // Inputs & Content
+    const inputMain = document.getElementById('ft-ai-input');
+    const inputReply = document.getElementById('ft-ai-reply-input');
+    const contextBlock = document.getElementById('ft-ai-context');
+    const responseText = document.getElementById('ft-ai-response-text');
+    const sourcesContainer = document.getElementById('ft-ai-sources');
+
+    // Кнопки
+    const btnSendMain = document.getElementById('btn-ft-ai-send');
+    const btnSendReply = document.getElementById('btn-ft-ai-reply-send');
 
     let savedSelectionText = "";
 
     if (!contentArea || !toolbar) return;
 
-    // === 1. ОТСЛЕЖИВАНИЕ ПРАВОЙ КНОПКИ МЫШИ ===
+    // === ВСПОМОГАТЕЛЬНЫЕ ФУНКЦИИ ===
+    function setAiState(state) {
+        // state: 'input' | 'loading' | 'response'
+        if (viewInput) viewInput.style.display = (state === 'input') ? 'block' : 'none';
+        if (viewLoading) viewLoading.style.display = (state === 'loading') ? 'flex' : 'none';
+        if (viewResponse) viewResponse.style.display = (state === 'response') ? 'flex' : 'none';
+    }
+
+    // Красивое отображение домена из ссылки
+    function getDomain(url) {
+        try {
+            return new URL(url).hostname.replace('www.', '');
+        } catch (e) {
+            return "Источник";
+        }
+    }
+
+    // Рендеринг источников
+    function renderSources(citations) {
+        if (!sourcesContainer) return;
+        sourcesContainer.innerHTML = '';
+        
+        if (!citations || citations.length === 0) {
+            sourcesContainer.style.display = 'none';
+            return;
+        }
+        sourcesContainer.style.display = 'flex';
+
+        citations.forEach((url, index) => {
+            const domain = getDomain(url);
+            
+            const chip = document.createElement('a');
+            chip.className = 'ft-source-chip';
+            chip.href = url;
+            chip.target = '_blank'; // Открывать в браузере
+            chip.title = url;
+            
+            // Если индекс >= 3, скрываем по умолчанию
+            if (index >= 3) {
+                chip.classList.add('ft-source-hidden');
+            }
+
+            chip.innerHTML = `
+                <span>${domain}</span>
+            `;
+            
+            sourcesContainer.appendChild(chip);
+        });
+
+        // Если источников больше 3, добавляем кнопку "+"
+        if (citations.length > 3) {
+            const moreBtn = document.createElement('button');
+            moreBtn.className = 'ft-source-more-btn';
+            moreBtn.innerHTML = `<i class="fa-solid fa-plus"></i>`;
+            moreBtn.title = "Показать все источники";
+            
+            moreBtn.onclick = () => {
+                // Показываем скрытые
+                const hiddenItems = sourcesContainer.querySelectorAll('.ft-source-hidden');
+                hiddenItems.forEach(item => item.classList.remove('ft-source-hidden'));
+                // Удаляем кнопку "+"
+                moreBtn.remove();
+            };
+            
+            sourcesContainer.appendChild(moreBtn);
+        }
+    }
+
+    // Общая функция отправки запроса
+    async function handleAiRequest(question) {
+        if (!question) return;
+
+        // Переключаем на загрузку
+        setAiState('loading');
+        
+        // Очищаем инпуты
+        if (inputMain) inputMain.value = '';
+        if (inputReply) inputReply.value = '';
+
+        try {
+            if (window.pywebview && window.pywebview.api) {
+                const res = await window.pywebview.api.ask_ai(question, savedSelectionText);
+
+                if (res.status === 'ok') {
+                    let rawText = res.answer;
+
+                    // 1. Заменяем LaTeX скобки, чтобы Marked их не съел
+                    // \[ ... \]  ->  $$ ... $$  (Блочная формула)
+                    // \( ... \)  ->  $ ... $    (Строчная формула)
+                    
+                    // Заменяем \[ и \] на $$
+                    let safeText = rawText.replace(/\\\[/g, '$$').replace(/\\\]/g, '$$');
+                    
+                    // Заменяем \( и \) на $
+                    safeText = safeText.replace(/\\\(/g, '$').replace(/\\\)/g, '$');
+
+                    // 2. Обработка цитат [1] -> <sup>[1]</sup>
+                    safeText = safeText.replace(/\[(\d+)\]/g, '<sup>[$1]</sup>');
+
+                    // 3. Теперь безопасно прогоняем через Marked
+                    responseText.innerHTML = marked.parse(safeText);
+
+                    // 4. Заставляем MathJax отрисовать формулы
+                    if (window.MathJax && window.MathJax.typesetPromise) {
+                        window.MathJax.typesetPromise([responseText])
+                            .then(() => {
+                                // Формулы отрисовались
+                            })
+                            .catch((err) => console.error('MathJax error:', err));
+                    }
+                    
+                    renderSources(res.citations);
+                    setAiState('response');
+                } else {
+                    responseText.innerText = "Ошибка: " + res.message;
+                    renderSources([]);
+                    setAiState('response');
+                }
+            } else {
+                // ДЕМО
+                setTimeout(() => {
+                    responseText.innerText = "Демо-ответ.\nВы спросили: " + question + "\n\n(Подключите backend для реального ответа)";
+                    renderSources([
+                        "https://ru.wikipedia.org/wiki/Искусственный_интеллект",
+                        "https://habr.com/ru/articles/",
+                        "https://google.com/search?q=test",
+                        "https://yandex.ru"
+                    ]);
+                    setAiState('response');
+                }, 1500);
+            }
+        } catch (e) {
+            responseText.innerText = "Ошибка JS: " + e;
+            setAiState('response');
+        }
+    }
+
+    // === ЛОГИКА ТУЛБАРА (Позиционирование и открытие) ===
     contentArea.addEventListener('contextmenu', (e) => {
         if (contentArea.contains(e.target)) {
             e.preventDefault(); 
             const selection = window.getSelection();
             savedSelectionText = selection.toString().trim();
-
-            // Показываем тулбар (с полным сбросом состояния)
             showToolbar(e.clientX, e.clientY, true);
         } else {
             hideToolbar();
@@ -32,43 +181,23 @@ function initFloatingToolbar() {
     });
 
     document.addEventListener('mousedown', (e) => {
-        // Если клик внутри тулбара, подменю или AI окна — не закрываем
         if (toolbar.contains(e.target)) return; 
         hideToolbar();
     });
 
-    // === 2. ПОЗИЦИОНИРОВАНИЕ ===
     function showToolbar(mouseX, mouseY, shouldReset = true) {
         toolbar.classList.add('visible');
-        
-        if (shouldReset) {
-            resetToolbarState();
-        }
+        if (shouldReset) resetToolbarState();
 
         const width = toolbar.offsetWidth;
         const height = toolbar.offsetHeight;
         
-        const offsetX = 10;
-        const offsetY = 10;
-        const winWidth = window.innerWidth;
-        const winHeight = window.innerHeight;
+        let left = mouseX + 10;
+        let top = mouseY + 10;
 
-        let left, top;
-
-        // X: Справа или Слева
-        if (mouseX + offsetX + width < winWidth) {
-            left = mouseX + offsetX;
-        } else {
-            left = mouseX - offsetX - width;
-        }
-
-        // Y: Снизу или Сверху
-        if (mouseY + offsetY + height < winHeight) {
-            top = mouseY + offsetY;
-        } else {
-            top = mouseY - offsetY - height;
-        }
-
+        // Базовая проверка границ
+        if (left + width > window.innerWidth) left = mouseX - 10 - width;
+        if (top + height > window.innerHeight) top = mouseY - 10 - height;
         if (left < 10) left = 10;
         if (top < 10) top = 10;
 
@@ -82,119 +211,98 @@ function initFloatingToolbar() {
     }
 
     function resetToolbarState() {
-        // Убеждаемся, что основные кнопки видны (хотя мы их теперь и не скрываем)
         if (mainButtons) mainButtons.style.display = 'flex';
-        // Очищаем инпут
-        if (aiInput) aiInput.value = ''; 
-        // Закрываем все выпадающие меню
         closeAllSubmenus();
     }
 
     function closeAllSubmenus() {
-        // Закрываем меню форматирования
         if (submenuFormat) submenuFormat.classList.remove('visible');
-        // Закрываем окно AI
         if (aiContainer) aiContainer.classList.remove('visible');
     }
 
-    // === 3. ОБРАБОТКА КНОПОК ===
+    // === ОБРАБОТЧИКИ СОБЫТИЙ ===
 
-    // -- AI Кнопка (теперь работает как toggle меню) --
+    // 1. Открытие окна AI
     const btnAi = document.getElementById('btn-ft-ai');
     if (btnAi) {
         btnAi.addEventListener('click', () => {
-            // Проверяем, открыто ли уже окно
             const isVisible = aiContainer.classList.contains('visible');
-            
-            // Сначала закрываем всё (включая меню форматирования)
             closeAllSubmenus();
 
             if (!isVisible) {
-                // Открываем AI окно
                 aiContainer.classList.add('visible');
+                setAiState('input'); // Всегда начинаем с чистого ввода
                 
-                // Логика контекста
-                if (aiContext) {
+                // Контекст
+                if (contextBlock) {
                     if (savedSelectionText) {
-                        aiContext.style.display = 'block';
-                        const displayText = savedSelectionText.length > 40 
-                            ? savedSelectionText.substring(0, 40) + '...' 
-                            : savedSelectionText;
-                        aiContext.textContent = `Контекст: "${displayText}"`;
+                        contextBlock.style.display = 'block';
+                        const txt = savedSelectionText.length > 50 ? savedSelectionText.substring(0,50)+'...' : savedSelectionText;
+                        contextBlock.textContent = `Контекст: "${txt}"`;
                     } else {
-                        aiContext.style.display = 'none';
+                        contextBlock.style.display = 'none';
                     }
                 }
-                
-                // Фокус на инпут
-                setTimeout(() => aiInput.focus(), 50);
+                setTimeout(() => inputMain.focus(), 50);
             }
         });
     }
 
-    // -- Отправка AI --
-    const btnAiSend = document.getElementById('btn-ft-ai-send');
-    if (btnAiSend) {
-        btnAiSend.addEventListener('click', () => {
-            const query = aiInput.value;
-            let fullPrompt = query;
-            if (savedSelectionText) {
-                fullPrompt += `\n\nКонтекст:\n${savedSelectionText}`;
-            }
-            alert(`AI Запрос:\n${fullPrompt}`);
-            // window.pywebview.api.ask_ai(...)
-            hideToolbar();
+    // 2. Отправка ПЕРВОГО запроса
+    if (btnSendMain) {
+        btnSendMain.addEventListener('click', () => handleAiRequest(inputMain.value.trim()));
+    }
+    // Enter в первом инпуте
+    if (inputMain) {
+        inputMain.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') handleAiRequest(inputMain.value.trim());
         });
     }
 
-    // -- Форматирование --
+    // 3. Отправка УТОЧНЕНИЯ (Reply)
+    if (btnSendReply) {
+        btnSendReply.addEventListener('click', () => handleAiRequest(inputReply.value.trim()));
+    }
+    // Enter во втором инпуте
+    if (inputReply) {
+        inputReply.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') handleAiRequest(inputReply.value.trim());
+        });
+    }
+
+    // 4. Форматирование
     const btnFormat = document.getElementById('btn-ft-format');
     if (btnFormat) {
         btnFormat.addEventListener('click', () => {
             const isVisible = submenuFormat.classList.contains('visible');
-            
-            // Закрываем всё (в том числе AI, если был открыт)
             closeAllSubmenus();
-            
-            if (!isVisible) {
-                submenuFormat.classList.add('visible');
-            }
+            if (!isVisible) submenuFormat.classList.add('visible');
         });
     }
 
-    // -- Команды (Bold, etc) --
-    const cmdButtons = document.querySelectorAll('[data-cmd]');
-    cmdButtons.forEach(btn => {
+    // 5. Команды редактора
+    document.querySelectorAll('[data-cmd]').forEach(btn => {
         btn.addEventListener('click', (e) => {
             e.stopPropagation(); 
-            const cmd = btn.dataset.cmd;
-            const val = btn.dataset.val || null;
-            document.execCommand(cmd, false, val);
+            document.execCommand(btn.dataset.cmd, false, btn.dataset.val || null);
             if (btn.closest('.ft-submenu')) closeAllSubmenus();
         });
     });
 
-    // -- Copy/Paste --
     ['copy', 'cut'].forEach(action => {
         const btn = document.getElementById(`btn-ft-${action}`);
-        if (btn) {
-            btn.addEventListener('click', () => {
-                document.execCommand(action);
-                hideToolbar();
-            });
-        }
+        if (btn) btn.addEventListener('click', () => {
+            document.execCommand(action);
+            hideToolbar();
+        });
     });
     
     const btnPaste = document.getElementById('btn-ft-paste');
-    if (btnPaste) {
-        btnPaste.addEventListener('click', async () => {
-            try {
-                const text = await navigator.clipboard.readText();
-                document.execCommand('insertText', false, text);
-            } catch (err) {
-                alert('Используйте Ctrl+V');
-            }
-            hideToolbar();
-        });
-    }
+    if (btnPaste) btnPaste.addEventListener('click', async () => {
+        try {
+            const text = await navigator.clipboard.readText();
+            document.execCommand('insertText', false, text);
+        } catch (err) { alert('Используйте Ctrl+V'); }
+        hideToolbar();
+    });
 }
