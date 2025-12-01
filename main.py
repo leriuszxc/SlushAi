@@ -8,6 +8,8 @@ from faster_whisper import WhisperModel
 import subprocess
 import gc # Сборщик мусора
 import torch
+import requests 
+from env import PERPLEXITY_API_KEY
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 DATA_DIR = os.path.join(BASE_DIR, 'docs')
@@ -16,15 +18,17 @@ CONFIG_PATH = os.path.join('config', 'config.json')
 # Папки для аудио и json
 BD_AUDIO_DIR = os.path.join(BASE_DIR, 'BD', 'audio')
 BD_TRANSCRIPTION_DIR = os.path.join(BASE_DIR, 'BD', 'transcription')
+BD_HISTORY_DIR = os.path.join(BASE_DIR, 'BD', 'historyAI')
 
 # Создаем папки для BD, если их нет, чтобы не было ошибок
 if not os.path.exists(BD_AUDIO_DIR):
     os.makedirs(BD_AUDIO_DIR)
 if not os.path.exists(BD_TRANSCRIPTION_DIR):
     os.makedirs(BD_TRANSCRIPTION_DIR)
-
 if not os.path.exists(DATA_DIR):
     os.makedirs(DATA_DIR)
+if not os.path.exists(BD_HISTORY_DIR):
+    os.makedirs(BD_HISTORY_DIR)
 
 class ConfigManager:
     """ Класс для управления конфигом """
@@ -525,6 +529,87 @@ class Api:
             
         except Exception as e:
             return {"status": "error", "message": str(e)}
+        
+    def ask_ai(self, user_query, selected_context=None):
+        """
+        1. Читает историю из BD/historyAI/history.json
+        2. Формирует контекст (если есть выделенный текст)
+        3. Отправляет запрос в Perplexity
+        4. Сохраняет историю
+        5. Возвращает ответ
+        """
+        print(f"AI Request: {user_query}")
+        
+        history_file = os.path.join(BD_HISTORY_DIR, 'history.json')
+        
+        # 1. Загрузка истории
+        messages = []
+        if os.path.exists(history_file):
+            try:
+                with open(history_file, 'r', encoding='utf-8') as f:
+                    messages = json.load(f)
+            except Exception:
+                messages = []
+
+        # Если история пустая, добавляем системный промпт
+        if not messages:
+            messages.append({
+                "role": "system",
+                "content": "Ты полезный помощник для студента. Отвечай кратко, точно и по делу. Используй русский язык."
+            })
+
+        # 2. Формирование сообщения пользователя
+        # Если есть выделенный текст, добавляем его в промпт
+        full_content = user_query
+        if selected_context:
+            full_content += f"\n\nКонтекст:\n{selected_context}"
+
+        messages.append({"role": "user", "content": full_content})
+
+        # 3. Запрос к Perplexity API
+        url = "https://api.perplexity.ai/chat/completions"
+        payload = {
+            "model": "sonar", # Или другая модель
+            "messages": messages,
+            "temperature": 0.2,
+            "top_p": 0.9,
+            "return_citations": True # Можно включить true, если нужны ссылки
+        }
+        headers = {
+            "Authorization": f"Bearer {PERPLEXITY_API_KEY}",
+            "Content-Type": "application/json"
+        }
+
+        try:
+            response = requests.post(url, json=payload, headers=headers)
+            
+            if response.status_code == 200:
+                data = response.json()
+                ai_reply = data['choices'][0]['message']['content']
+                
+                # 1. Безопасно достаем список ссылок. Если их нет, будет пустой список.
+                citations = data.get('citations', [])
+
+                # 4. Сохраняем ответ ассистента в историю
+                messages.append({"role": "assistant", "content": ai_reply})
+                
+                with open(history_file, 'w', encoding='utf-8') as f:
+                    json.dump(messages, f, ensure_ascii=False, indent=4)
+                
+                return {"status": "ok", "answer": ai_reply, "citations": citations}
+            else:
+                return {"status": "error", "message": f"API Error: {response.status_code} - {response.text}"}
+                
+        except requests.exceptions.Timeout:
+            return {"status": "error", "message": "Превышено время ожидания"}
+        except requests.exceptions.ConnectionError:
+            return {"status": "error", "message": "Ошибка подключения"}
+        except requests.exceptions.HTTPError as e:
+            if e.response.status_code == 429:
+                return {"status": "error", "message": "Превышен лимит запросов"}
+        except Exception as e:
+            return {"status": "error", "message": str(e)}
+
         
 def monitor_changes(window, api_instance):
     last_state_json = ""
