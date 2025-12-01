@@ -10,10 +10,6 @@
 
     <!-- Иконки -->
     <link rel="stylesheet" href="fonts/fontawesome-free-7.1.0-web/css/all.min.css">
-
-    <!-- MathJax для формул -->
-    <!-- <script src="https://polyfill.io/v3/polyfill.min.js?features=es6"></script>
-    <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script> -->
 </head>
 <body>
     <!-- Уведомление о транскрибации -->
@@ -72,16 +68,47 @@
             </button>
         </div>
 
-        <!-- 2. Поле ввода AI (скрыто по умолчанию) -->
+        <!-- 2. Окно AI -->
         <div id="ft-ai-container" class="ft-ai-input-container">
-            <!-- Сюда будет вставляться цитата выделенного текста -->
-            <div id="ft-ai-context" class="ft-ai-context"></div>
-            <div class="ft-ai-row">
-                <input type="text" id="ft-ai-input" class="ft-ai-input" placeholder="Задайте вопрос AI...">
-                <button class="ft-ai-btn" id="btn-ft-ai-send">
-                    <i class="fa-solid fa-arrow-up"></i>
-                </button>
+            
+            <!-- VIEW 1: Начальный ввод (INPUT) -->
+            <div id="ft-ai-view-input">
+                <div id="ft-ai-context" class="ft-ai-context"></div>
+                <div class="ft-ai-row">
+                    <input type="text" id="ft-ai-input" class="ft-ai-input" placeholder="Задайте вопрос AI...">
+                    <button class="ft-ai-btn" id="btn-ft-ai-send">
+                        <i class="fa-solid fa-arrow-up"></i>
+                    </button>
+                </div>
             </div>
+
+            <!-- VIEW 2: Загрузка (LOADING) -->
+            <div id="ft-ai-view-loading" class="ft-ai-loading">
+                <div class="ft-ai-loading-content">
+                    <i class="fa-solid fa-circle-notch fa-spin"></i>
+                </div>
+            </div>
+
+            <!-- VIEW 3: Ответ + Источники + Продолжение диалога -->
+            <div id="ft-ai-view-response" class="ft-ai-response-view">
+                
+                <!-- Текст ответа -->
+                <div id="ft-ai-response-text" class="ft-ai-response-text"></div>
+
+                <!-- Блок источников -->
+                <div id="ft-ai-sources" class="ft-ai-sources">
+                    <!-- Сюда JS добавит ссылки -->
+                </div>
+
+                <!-- Поле для уточнения (выглядит как чат) -->
+                <div class="ft-ai-footer-input">
+                    <input type="text" id="ft-ai-reply-input" class="ft-ai-input" placeholder="Уточнить...">
+                    <button class="ft-ai-btn" id="btn-ft-ai-reply-send">
+                        <i class="fa-solid fa-arrow-up"></i>
+                    </button>
+                </div>
+            </div>
+
         </div>
 
         <!-- 3. Подменю Форматирования (Выпадает вниз) -->
@@ -319,6 +346,27 @@
             </div>
         </div>
     </div>
+    <!-- Конфигурация MathJax -->
+    <script>
+    window.MathJax = {
+      tex: {
+        // Разрешаем искать формулы внутри $...$ и $$...$$
+        inlineMath: [['$', '$'], ['\\(', '\\)']],
+        displayMath: [['$$', '$$'], ['\\[', '\\]']],
+        processEscapes: true
+      },
+      options: {
+        // Говорим MathJax игнорировать теги, где формул быть не должно
+        ignoreHtmlClass: 'tex2jax_ignore',
+        processHtmlClass: 'tex2jax_process'
+      },
+      svg: {
+        fontCache: 'global'
+      }
+    };
+    </script>
+    <script id="MathJax-script" async src="fonts/tex-svg-full.js"></script>
+    <script src="fonts/marked.umd.js"></script>
     <script src="scripts/sidebar.js"></script>
     <script src="scripts/transcription.js"></script>
     <script src="scripts/search.js"></script>
