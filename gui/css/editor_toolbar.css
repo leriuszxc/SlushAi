@@ -1,0 +1,175 @@
+/* Основной контейнер тулбара */
+.floating-toolbar {
+    position: absolute;
+    z-index: 1000;
+    display: none; /* Скрыт по умолчанию */
+    background: #fff;
+    border-radius: 100px;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.15);
+    padding: 5px;
+    border: 1px solid #f0f0f0;
+    font-family: 'Montserrat', sans-serif;
+    animation: fadeIn 0.2s ease-out;
+}
+
+.floating-toolbar.visible {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+}
+
+/* Анимация появления */
+@keyframes fadeIn {
+    from { opacity: 0; transform: translateY(10px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+/* Кнопки в тулбаре */
+.ft-btn {
+    background: none;
+    border: none;
+    border-radius: 100px;
+    width: 32px;
+    height: 32px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    color: #444;
+    transition: background 0.2s, color 0.2s;
+    font-size: 0.95rem;
+}
+
+.ft-btn:hover, .ft-btn.active {
+    background: #f5f5f7;
+    color: #000;
+}
+
+.ft-divider {
+    width: 1px;
+    height: 20px;
+    background: #e0e0e0;
+    margin: 0 4px;
+}
+
+/* --- Подменю (для AI и Форматирования) --- */
+.ft-submenu {
+    position: absolute;
+    top: 110%; /* Появляется под тулбаром */
+    left: 0;
+    background: #fff;
+    border-radius: 20px;
+    box-shadow: 0 8px 24px rgba(0,0,0,0.12);
+    border: 1px solid #f0f0f0;
+    padding: 8px;
+    min-width: 200px;
+    display: none;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.ft-submenu.visible {
+    display: flex;
+}
+
+/* Элементы списка в подменю */
+.ft-item {
+    display: flex;
+    align-items: center;
+    padding: 6px 8px;
+    border-radius: 100px;
+    cursor: pointer;
+    font-size: 0.85rem;
+    color: #333;
+    transition: background 0.2s;
+}
+
+.ft-item:hover {
+    background: #f5f5f7;
+}
+
+.ft-item i {
+    width: 20px;
+    text-align: center;
+    color: #666;
+}
+
+/* --- AI Input (специальный блок) --- */
+.ft-ai-input-container {
+    display: none;
+    position: absolute;
+    top: 110%;
+    left: 0;
+    z-index: 1001;
+    flex-direction: column;
+    gap: 6px;
+    background: #fff;
+    border-radius: 20px;
+    padding: 8px;
+    min-width: 260px;
+    box-shadow: 0 8px 24px rgba(0,0,0,0.12);
+    border: 1px solid #f0f0f0;
+}
+
+/* Класс для отображения */
+.ft-ai-input-container.visible {
+    display: flex;
+}
+
+/* Строка с инпутом и кнопкой */
+.ft-ai-row {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    width: 100%;
+}
+
+/* Блок цитирования выделенного текста */
+.ft-ai-context {
+    display: none;
+    font-size: 0.75rem;
+    color: #666;
+    background: #f0f7ff;
+    border-left: 3px solid #007bff;
+    padding: 6px 8px;
+    border-radius: 20px;
+    margin-bottom: 4px;
+    max-width: 100%;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.ft-ai-input {
+    border: 1px solid #f6f6f6;
+    outline: none;
+    background: #fafdff;
+    padding: 8px 12px;
+    border-radius: 20px;
+    font-size: 0.85rem;
+    flex-grow: 1;
+}
+
+.ft-ai-input:focus {
+    background: #fff;
+    border-color: #007bff;
+}
+
+.ft-ai-btn {
+    background: #000;
+    color: #fff;
+    border: none;
+    border-radius: 8px;
+    width: 32px;
+    height: 32px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    transition: transform 0.1s;
+}
+
+.ft-ai-btn:active {
+    transform: scale(0.95);
+}
