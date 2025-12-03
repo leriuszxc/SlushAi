@@ -5,6 +5,8 @@ document.addEventListener('DOMContentLoaded', async () => {
     let activeFolderId = null;
     let sortOrder = 'asc'; // 'asc' или 'desc'
     let searchQuery = ''; // Поиск по директории
+    let bookmarksFilter = false; // Флаг режима избранных
+
 
     // Элементы
     const container = document.getElementById('file-system-container');
@@ -52,13 +54,58 @@ document.addEventListener('DOMContentLoaded', async () => {
     window.loadFileSystem = loadFileSystem;
 
 
-    // === 3. РЕНДЕРИНГ ===
-    function render() {
+    // === 3. РЕНДЕРИНГ ИЗБРАННЫХ ===
+    //Отрисовка избранных на левой панели
+    async function render() {
         container.innerHTML = '';
-        const filteredData = filterData(fileSystem, searchQuery);
+        
+        let dataToRender = fileSystem;
+
+        // ФИЛЬТР ПО ИЗБРАННЫМ
+        if (bookmarksFilter) {    
+            if (window.pywebview && window.pywebview.api) {
+                try {
+                    const bookmarks = await window.pywebview.api.get_bookmarks();
+                    dataToRender = filterBookmarksTree(fileSystem, bookmarks);
+                } catch (e) {
+                    console.error("Ошибка загрузки избарнных:", e);
+                }
+            }
+            // Очищаем лоадер перед отрисовкой
+            container.innerHTML = '';
+        }
+
+        const filteredData = filterData(dataToRender, searchQuery);
         const sortedData = sortData([...filteredData]);
-        renderRecursive(sortedData, container, 0);
+
+        // Если включен режим избранных и список пуст
+if (bookmarksFilter && sortedData.length === 0) {
+            container.innerHTML = '<div style="padding:20px; color:#888; text-align:center; font-size: 14px;">Пока тут ничего нет :(</div>';
+            
+            //Очищаем правую область если в избранных ничего нет
+            const titleEl = document.getElementById('lecture-title');
+            const contentSection = document.getElementById('lecture-text');
+            
+            if (titleEl) titleEl.textContent = '';
+            if (contentSection) {
+                contentSection.innerText = '';
+                contentSection.contentEditable = 'false'; // Запрещаем писать в пустоту
+            }
+            // Сбрасываем активный ID, чтобы ничего не было выделено
+            activeFolderId = null;
+        } 
+        // Если обычный режим, но поиск ничего не дал
+        else if (sortedData.length === 0 && searchQuery) {
+             container.innerHTML = '<div style="padding:20px; color:#888; text-align:center;">Ничего не найдено</div>';
+        } 
+        // Обычная отрисовка
+        else {
+            renderRecursive(sortedData, container, 0);
+        }
     }
+
+    window.renderFileSystem = render; //Делаем функцию глобальной
+
 
     function renderRecursive(items, parentElement, level) {
         items.forEach(item => {
@@ -151,9 +198,20 @@ document.addEventListener('DOMContentLoaded', async () => {
                 try {
                     window.pywebview.api.save_last_file(item.id); // Последний файл
                     const res = await window.pywebview.api.read_file(item.id, item.name);
+                    //Проверка состояния кнопки избранных справа сверху (добавлен файл в избранные или нет)
                     if (res.status === 'ok') {
                         // ПЕРЕДАЕМ item.id (ПОЛНЫЙ ПУТЬ) ДЛЯ СОХРАНЕНИЯ
                         updateContentArea(item.name, res.content, item.id);
+                        
+                        // Ищем кнопку избранных на панели инструментов
+                        const bookmarkToolbarBtn = document.querySelector('.tool-btn i.fa-bookmark')?.parentElement;
+                        
+                        // Проверяем, существует ли функция обновления иконки (из editor_tools.js)
+                        if (bookmarkToolbarBtn && window.updateBookmarkIcon) {
+                            // Вызываем её для текущего открытого файла
+                            window.updateBookmarkIcon(bookmarkToolbarBtn, item.id);
+                        }
+
                     } else {
                         updateContentArea("Ошибка", res.message, null);
                     }
@@ -296,6 +354,13 @@ document.addEventListener('DOMContentLoaded', async () => {
                         // Но для мгновенного отклика можно обновить локально:
                         itemObj.name = newName;
                         delete itemObj.isTemp;
+                        
+                        //Если при переиминовыванием файл сейчас открыт, то сразу обновляем название и справа
+                        if (itemObj.id === activeFolderId) {
+                             const titleEl = document.getElementById('lecture-title');
+
+                             if (titleEl) titleEl.textContent = newName;
+                        }
                     }
 
                 } catch (e) {
@@ -542,6 +607,36 @@ document.addEventListener('DOMContentLoaded', async () => {
         render();
     };
 
+    // Кнопка "избранных" (слева сверху)
+    // Ищем кнопку по иконке
+    const bookmarksBtn = document.querySelector('.icon-btn i.fa-bookmark')?.parentElement;
+    
+    if (bookmarksBtn) {
+        // Клонируем кнопку, чтобы удалить старые обработчики (если они были)
+        // Нужно чтобы при повторном запуске не было визуального бага у кнопки
+        const newBtn = bookmarksBtn.cloneNode(true);
+        bookmarksBtn.parentNode.replaceChild(newBtn, bookmarksBtn);
+        
+        newBtn.addEventListener('click', async () => {
+            bookmarksFilter = !bookmarksFilter; // Переключаем режим
+            
+            // Визуальное выделение кнопки
+            if (bookmarksFilter) {
+                newBtn.classList.add('active');
+                newBtn.style.backgroundColor = 'var(--primary-color, #007bff)'; 
+                newBtn.style.color = '#fff';
+            } else {
+                newBtn.classList.remove('active');
+                newBtn.style.backgroundColor = ''; 
+                newBtn.style.color = '';
+            }
+            
+            // Вызываем обновление списка
+            await render();
+        });
+    }
+
+
     // Drag & Drop (упрощенно, только визуал пока)
     // Drag & Drop
     let draggedItem = null;
@@ -700,4 +795,28 @@ document.addEventListener('DOMContentLoaded', async () => {
             }
         }, 500);
     }
+
+    // Функция для фильтрации дерева по списку ID избранных
+    // Возвращение чисто файлов без каталогов
+    function filterBookmarksTree(items, bookmarkIds) {
+        let result = [];
+        
+        function traverse(nodes) {
+            for (const node of nodes) {
+                if (node.type === 'file') {
+                    // Если файл в избранных — добавляем его в список
+                    if (bookmarkIds.includes(node.id)) {
+                        result.push({ ...node }); // Копируем, чтобы не испортить оригинал
+                    }
+                } else if (node.type === 'folder' && node.children) {
+                    // Если папка — идем внутрь, но саму папку НЕ добавляем
+                    traverse(node.children);
+                }
+            }
+        }
+
+        traverse(items);
+        return result;
+    }
+
 });

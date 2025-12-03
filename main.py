@@ -609,7 +609,65 @@ class Api:
                 return {"status": "error", "message": "Превышен лимит запросов"}
         except Exception as e:
             return {"status": "error", "message": str(e)}
+            
+    def get_bookmarks(self):
+        """Получить список избранных"""
+        bookmarks_file = os.path.join('config', 'bookmarks.json')
+        if os.path.exists(bookmarks_file):
+            try:
+                with open(bookmarks_file, 'r', encoding='utf-8') as f:
+                    return json.load(f)
+            except Exception:
+                return []
+        return []
 
+    def add_bookmark(self, file_id):
+        """Добавить файл в избранные"""
+        try:
+            bookmarks = self.get_bookmarks()
+            
+            # Проверяем, есть ли уже такая закладка
+            if file_id in bookmarks:
+                return {"status": "error", "message": "Файл уже в закладках"}
+            
+            bookmarks.append(file_id)
+            
+            bookmarks_file = os.path.join('config', 'bookmarks.json')
+            os.makedirs(os.path.dirname(bookmarks_file), exist_ok=True)
+            
+            with open(bookmarks_file, 'w', encoding='utf-8') as f:
+                json.dump(bookmarks, f, ensure_ascii=False, indent=4)
+            
+            return {"status": "ok"}
+        except Exception as e:
+            return {"status": "error", "message": str(e)}
+
+    def remove_bookmark(self, file_id):
+        """Удалить файл из избранных"""
+        try:
+            bookmarks = self.get_bookmarks()
+            
+            if file_id not in bookmarks:
+                return {"status": "error", "message": "Файл не найден в закладках"}
+            
+            bookmarks.remove(file_id)
+            
+            bookmarks_file = os.path.join('config', 'bookmarks.json')
+            with open(bookmarks_file, 'w', encoding='utf-8') as f:
+                json.dump(bookmarks, f, ensure_ascii=False, indent=4)
+            
+            return {"status": "ok"}
+        except Exception as e:
+            return {"status": "error", "message": str(e)}
+
+    def toggle_bookmark(self, file_id):
+        """Переключить состояние избранных"""
+        bookmarks = self.get_bookmarks()
+        
+        if file_id in bookmarks:
+            return self.remove_bookmark(file_id)
+        else:
+            return self.add_bookmark(file_id)
         
 def monitor_changes(window, api_instance):
     last_state_json = ""
