@@ -1,0 +1,941 @@
+body, html {
+    padding: 0;
+    margin: 0;
+    height: 100%;
+    width: 100%;
+    font-family: 'Montserrat', sans-serif;
+    color: #333;
+    overflow: hidden !important;
+    display: flex;
+    flex-direction: column;
+}
+
+/* Контейнер уведомления */
+.transcription-toast {
+    position: fixed;
+    top: -100px; /* Спрятано */
+    left: 50%;
+    transform: translateX(-50%);
+    width: 300px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    padding: 3px; 
+    border-radius: 50px;
+    overflow: hidden;
+    box-shadow: 0 10px 40px rgba(0, 195, 255, 0.3);
+    background: transparent;
+    border: none;
+    z-index: 2000;
+    transition: top 0.5s cubic-bezier(0.34, 1.56, 0.64, 1); /* Пружинистый эффект */
+}
+
+/* Вращающийся градиент */
+.transcription-toast::before {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    width: 400px;
+    height: 400px;
+    background: conic-gradient(
+        transparent 0deg, 
+        transparent 60deg,
+        #94e6ff 140deg, 
+        #63aeff 180deg, 
+        #94e6ff 220deg,
+        transparent 300deg
+    );
+    animation: border-spin 5s linear infinite;
+    z-index: -1;
+}
+
+/* Анимация вращения */
+@keyframes border-spin {
+    from {
+        transform: translate(-50%, -50%) rotate(0deg);
+    }
+    to {
+        transform: translate(-50%, -50%) rotate(360deg);
+    }
+}
+
+.transcription-toast.visible {
+    top: 20px; /* Показываем */
+}
+
+.toast-content {
+    background: #fff;
+    width: 100%;
+    height: 100%;
+    border-radius: 50px;
+    padding: 12px 15px;
+    display: flex;
+    flex-direction: column;
+    position: relative;
+    z-index: 1;
+}
+
+.toast-title {
+    font-weight: 700;
+    font-size: 0.85rem;
+    color: #222;
+    text-align: center;
+    margin-left: 10px;
+    margin-bottom: 2px;
+}
+
+.toast-timer {
+    font-family: 'Montserrat', monospace;
+    font-size: 0.65rem;
+    color: #b5b5b5;
+    margin-left: 15px;
+    letter-spacing: 1px;
+}
+
+.toast-progress-container {
+    width: 100%;
+    height: 2px;
+    background: #f0f2f5;
+    border-radius: 10px;
+    overflow: hidden;
+    position: relative;
+    
+}
+
+.toast-progress-bar {
+    height: 100%;
+    width: 0%;
+    background: linear-gradient(90deg, #00c3ff, #007bff);
+    border-radius: 10px;
+    transition: width 0.4s ease-out;
+    box-shadow: 0 0 10px rgba(0, 123, 255, 0.4);
+}
+
+.toast-status {
+    font-size: 0.7rem;
+    color: #999;
+    text-align: center;
+    margin-bottom: 4px;
+}
+
+/* Стили для контейнера */
+.folder-list {
+    flex: 1;
+    overflow-y: scroll;
+    padding: 10px;
+    color: #333;
+}
+.folder-list::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+    background-color: transparent;
+}
+.folder-list::-webkit-scrollbar-thumb {
+    background-color: #ccc;
+    border-radius: 4px;
+    border: 2px solid transparent;
+    background-clip: content-box;
+}
+
+/* Элемент дерева (строка) */
+.fs-item {
+    display: flex;
+    align-items: center;
+    padding: 6px 10px;
+    cursor: pointer;
+    border-radius: 6px;
+    transition: background 0.2s;
+    user-select: none;
+    margin-bottom: 2px;
+}
+.fs-item:hover {
+    background-color: rgba(0, 0, 0, 0.05);
+}
+.fs-item.active {
+    background-color: #eef2ff;
+    color: #4f46e5;
+    font-weight: 500;
+}
+.fs-item i {
+    margin-right: 8px;
+    color: #666;
+    width: 20px;
+    text-align: center;
+}
+.fs-item.file i {
+    color: #4f46e5;
+}
+.fs-item.drag-over {
+    border: 2px dashed #4f46e5;
+    background-color: rgba(79, 70, 229, 0.1);
+}
+
+/* Инпут для переименования */
+.fs-input {
+    border: 1px solid #4f46e5;
+    border-radius: 4px;
+    padding: 2px 5px;
+    font-family: inherit;
+    font-size: inherit;
+    outline: none;
+    width: 100%;
+    background: #fff;
+}
+
+/* Стрелочка раскрытия папки */
+.arrow-icon {
+    width: 12px;
+    height: 12px;
+    margin-right: 8px;
+    font-size: 0.8em;
+    color: #888;
+    transition: transform 0.3s ease;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.fs-item.open .arrow-icon {
+    transform: rotate(90deg);
+}
+
+/* Для файлов стрелку делаем невидимой, чтобы отступ сохранился */
+.fs-item.file .arrow-icon {
+    visibility: hidden;
+}
+
+.fs-item i.fa-folder, 
+.fs-item i.fa-folder-open, 
+.fs-item i.fa-file-lines {
+    margin-right: 8px;
+    color: #4f46e5;
+}
+
+/* Контекстное меню */
+.context-menu {
+    position: fixed;
+    z-index: 1000;
+    background: #fff;
+    border: 1px solid #ddd;
+    box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+    border-radius: 6px;
+    padding: 5px 0;
+    width: 150px;
+    display: none;
+}
+
+.context-menu-item {
+    padding: 8px 15px;
+    cursor: pointer;
+    font-size: 14px;
+    color: #333;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+.context-menu-item:hover {
+    background-color: #f5f5f5;
+    color: #d32f2f;
+}
+.context-menu-item i {
+    width: 16px;
+}
+
+/* Верхняя панель */
+.top-bar {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding-left: 12px;
+    height: 55px;
+    border-bottom: 1px solid #eee;
+    position: relative;
+    flex-shrink: 0; /* Пожалуйста, не убирайте эту штуку, решал баг 2 часа */
+    /* Благодаря ей шапка не сужается при появлении в main ползунка скрола */
+}
+
+.logo-area {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+}
+
+.main-logo {
+    font-weight: 900;
+    font-size: 1.0em;
+    background: #fff;
+    padding: 9px 80px;
+    border-radius: 20px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+    color: #333;
+}
+
+.logo-accent {
+    color: #0097a7;
+}
+
+/* Отключить обводку для редактируемых элементов */
+[contenteditable]:focus {
+    outline: none !important;
+    box-shadow: none !important;
+    border: none !important;
+}
+
+.icon-btn {
+    background: #fff;
+    border: none;
+    border-radius: 50%;
+    min-width: 45px;
+    min-height: 45px;
+    width: 45px;
+    height: 45px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    font-size: 1.1em;
+    color: #555;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.05);
+    transition: background 0.2s;
+}
+.icon-btn:hover {
+    background: #f0f0f0;
+}
+
+.lecture-meta {
+    display: flex;
+    align-items: center;
+    font-size: 0.8em;
+    color: #888;
+    gap: 8px;
+}
+
+/* Правая панель инструментов */
+.tools-area {
+    display: flex;
+    align-items: center;
+    gap: 15px;
+    padding-right: 40px;
+    position: relative; /* ВАЖНО для позиционирования строки поиска */
+}
+
+.tool-btn {
+    background: none;
+    border: none;
+    font-size: 1.2em;
+    color: #333;
+    cursor: pointer;
+    padding: 5px;
+    display: flex; /* Для центровки иконки */
+    align-items: center;
+    justify-content: center;
+    transition: color 0.2s;
+}
+.tool-btn:hover {
+    color: #0097a7;
+}
+
+.main-layout {
+    max-height: 100%;
+    display: flex;
+    flex-grow: 1;       
+    height: auto;       
+    min-height: 0;
+    overflow: hidden;
+}
+:root {
+    --sidebar-width: 200px;
+}
+
+/* Боковая панель */
+.sidebar {
+    margin-left: 10px;
+    background-color: #fdfdfd;
+    border-right: 1px solid #eee;
+    display: flex;
+    flex-direction: column;
+    padding-top: 10px;
+    height: auto;
+    margin-bottom: 10px;
+    align-self: stretch; 
+    border-radius: 20px;
+    box-sizing: border-box;
+    min-width: var(--sidebar-width); 
+    max-width: 350px;
+}
+
+.sidebar-header {
+    margin-bottom: 10px;
+}
+
+.folder-actions {
+    display: flex;
+    gap: 4px;
+    color: #555;
+    font-size: 0.95em;
+    justify-content: center;
+}
+
+.folder-group {
+    margin-bottom: 10px;
+}
+
+/* Заголовок папки */
+.folder-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding-right: 10px;
+    cursor: pointer;
+    margin-bottom: 5px;
+    border-radius: 6px;
+    transition: background 0.2s;
+}
+.folder-header:hover {
+    background-color: #edf2f7;
+}
+
+.folder-title-click {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-grow: 1;
+    padding: 8px 0;
+    font-weight: 500;
+    color: #777;
+    font-size: 0.95em;
+}
+
+/* Сворачивание */
+.folder-group.collapsed .sub-list {
+    display: none;
+}
+
+.folder-group.collapsed .arrow-icon {
+    transform: rotate(-90deg);
+}
+
+.sub-list {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+}
+
+.sub-list li {
+    padding: 8px 10px;
+    margin-bottom: 5px;
+    border-radius: 8px;
+    cursor: pointer;
+    font-size: 0.95em;
+    color: #333;
+    transition: background 0.2s;
+}
+.sub-list li:hover {
+    background-color: #eaeef3;
+}
+.sub-list li.active {
+    background-color: #ffffff;
+    font-weight: 600;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+    border-left: 3px solid #0097a7;
+}
+
+.sidebar-footer {
+    margin-top: auto;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+}
+
+.search-bar {
+    flex-grow: 1;
+    background: #fff;
+    border-radius: 20px;
+    padding: 8px 12px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+}
+
+.search-bar input {
+    border: none;
+    outline: none;
+    width: 100%;
+    font-family: 'Montserrat', sans-serif;
+    font-size: 0.9em;
+}
+
+.search-bar i {
+    color: #aaa;
+}
+
+.help-btn, .settings-btn {background: #fff;
+    border: none;
+    border-radius: 50%;
+    min-width: 45px;
+    min-height: 45px;
+    width: 45px;
+    height: 45px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    font-size: 1.1em;
+    color: #555;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.05);
+    transition: background 0.2s;
+}
+.help-btn:hover, .settings-btn:hover {
+    background-color: #eaeef3;
+}
+
+.content-area {
+    flex-grow: 1;
+    padding-top: 5px;
+    padding-left: 20px;
+    overflow-y: scroll;
+    background-color: #fff;
+    position: relative;
+    scroll-behavior: smooth; 
+    padding-bottom: 50vh; 
+    box-sizing: border-box;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+}
+.lecture-meta {
+    padding-bottom: 50px;
+}
+
+.content-area .lecture-meta,
+.content-area .lecture-content {
+    width: 100%;        
+    max-width: 800px;      
+    text-align: center; 
+}
+
+.content-area .lecture-content {
+    text-align: left;
+    font-size: 18px;
+}
+
+.content-area::-webkit-scrollbar {
+    width: 8px;              /* Ширина вертикального скролла */
+    height: 1px;             /* Высота горизонтального */
+    background-color: transparent; /* Фон под бегунком  */
+}
+/* Бегунок */
+.content-area::-webkit-scrollbar-thumb {
+    background-color: #ccc;  /* Цвет бегунка */
+    border-radius: 4px;      /* Скругление краев */
+    border: 2px solid transparent; /* Отступ от края */
+    background-clip: content-box;  /* Чтобы бордер работал как отступ */
+}
+
+/* Стиль для даты/мета-информации */
+.content-area .lecture-meta {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 10px;
+    color: #888;
+    font-size: 0.9rem;
+}
+
+@media (max-width: 600px) {
+    .content-area {
+        padding-left: 10px;
+    }
+    
+    .content-area .lecture-content {
+        font-size: 16px;
+    }
+}
+
+.lecture-content {
+    position: relative;
+    box-sizing: border-box;
+}
+
+.lecture-content p {
+    line-height: 1.6;
+    margin-bottom: 15px;
+    color: #444;
+}
+
+/* Плавающая кнопка внизу справа */
+.floating-download-btn {
+    position: fixed;
+    bottom: 30px;
+    right: 30px;
+    width: 50px;
+    height: 50px;
+    border-radius: 50%;
+    background: #fff;
+    border: 1px solid #ddd;
+    box-shadow: 0 4px 10px rgba(0,0,0,0.1);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.2em;
+    color: #333;
+    transition: transform 0.2s;
+}
+.floating-download-btn:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 6px 14px rgba(0,0,0,0.15);
+}
+
+.icon-btn-sm {
+    background: none;
+    border: none;
+    cursor: pointer;
+    padding: 4px;
+    font-size: 0.9rem;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    color: #777;
+}
+.icon-btn-sm i {
+    pointer-events: none; /* чтобы клики шли по кнопке, а не по иконке */
+}
+.icon-btn-sm:hover {
+    color: #d32f2f;
+}
+
+.folder-actions {
+    display: flex;
+    gap: 6px;
+    align-items: center;
+}
+
+/* КНО НАСТРОЕК */
+.settings-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 1100;
+    display: none;
+    align-items: stretch;
+    justify-content: flex-start;
+    background: rgba(0, 0, 0, 0.15);
+    backdrop-filter: blur(2px);
+}
+.settings-overlay.visible {
+    display: flex;
+}
+
+.settings-panel {
+    height: 100%;
+    max-width: 720px;
+    width: 100%;
+    display: flex;
+    border-radius: 0 30px 30px 0;
+    background: rgba(255, 255, 255, 0.96);
+    box-shadow: 6px 0 30px rgba(0, 0, 0, 0.18);
+    transform: translateX(-110%);
+    transition: transform 0.25s ease-out;
+}
+.settings-overlay.visible .settings-panel {
+    transform: translateX(0);
+}
+
+/* Левая колонка */
+.settings-left {
+    width: 270px;
+    border-right: 1px solid rgba(0, 0, 0, 0.05);
+    background: linear-gradient(180deg, #f5f7fb 0%, #ffffff 55%, #f7f7f7 100%);
+    padding: 16px 18px 18px;
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+}
+
+.settings-left-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding-bottom: 6px;
+}
+
+.settings-logo {
+    font-weight: 700;
+    font-size: 1rem;
+    color: #1f6feb;
+}
+
+.settings-close-btn {
+    border: none;
+    background: #f2f2f2;
+    border-radius: 999px;
+    width: 28px;
+    height: 28px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    color: #555;
+}
+.settings-close-btn:hover {
+    background: #e4e4e4;
+}
+
+.settings-left-title {
+    font-weight: 600;
+    font-size: 0.95rem;
+    color: #888;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+}
+
+.settings-nav-item {
+    border: none;
+    background: transparent;
+    border-radius: 12px;
+    padding: 10px 12px;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    cursor: pointer;
+    gap: 2px;
+    font-family: inherit;
+    transition: background 0.15s ease, transform 0.08s ease;
+}
+.settings-nav-item:hover {
+    background: rgba(31, 111, 235, 0.06);
+}
+.settings-nav-item.active {
+    background: rgba(31, 111, 235, 0.10);
+}
+
+.settings-nav-main {
+    font-size: 0.9rem;
+    font-weight: 500;
+}
+
+.settings-nav-secondary {
+    font-size: 0.75rem;
+    color: #777;
+}
+
+/* Правая колонка */
+.settings-right {
+    flex: 1;
+    padding: 22px 22px 24px;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+}
+
+.settings-right-title {
+    margin: 0;
+    font-size: 1.05rem;
+    font-weight: 600;
+}
+
+.settings-right-subtitle {
+    margin: 0;
+    font-size: 0.85rem;
+    color: #666;
+}
+
+.settings-model-list {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.settings-model-card {
+    width: 100%;
+    border-radius: 14px;
+    border: 1px solid #e3e6ee;
+    background: #fff;
+    padding: 10px 12px;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 4px;
+    cursor: pointer;
+    font-family: inherit;
+    transition: box-shadow 0.15s ease, transform 0.08s ease,
+                border-color 0.15s ease, background 0.15s ease;
+}
+.settings-model-card:hover {
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.06);
+    transform: translateY(-1px);
+}
+.settings-model-card.active {
+    border-color: #1f6feb;
+    background: #f5f9ff;
+}
+
+.settings-model-name {
+    font-size: 1.2rem;
+    font-weight: 500;
+}
+
+.settings-model-tag {
+    font-size: 0.72rem;
+    font-weight: 600;
+    color: #1f6feb;
+    text-transform: uppercase;
+}
+
+.settings-model-desc {
+    font-size: 0.95rem;
+    color: #666;
+    text-align: left;
+}
+
+.settings-primary-btn {
+    margin-top: 4px;
+    align-self: flex-start;
+    border-radius: 999px;
+    border: none;
+    background: #1f6feb;
+    color: #fff;
+    padding: 8px 18px;
+    font-size: 0.85rem;
+    font-weight: 500;
+    font-family: inherit;
+    cursor: pointer;
+    box-shadow: 0 4px 10px rgba(31, 111, 235, 0.3);
+    transition: transform 0.08s ease, box-shadow 0.15s ease, background 0.15s ease;
+}
+.settings-primary-btn:hover {
+    background: #1856c0;
+    box-shadow: 0 6px 16px rgba(31, 111, 235, 0.35);
+    transform: translateY(-1px);
+}
+
+.settings-note {
+    font-size: 0.72rem;
+    color: #999;
+    margin: 4px 0 0;
+}
+
+@media (max-width: 900px) {
+    .settings-panel {
+        max-width: 100%;
+        border-radius: 0;
+    }
+
+    .settings-left {
+        display: none;
+    }
+}
+
+/* Простейшая тёмная тема */
+body.theme-dark {
+    background: #050816;
+    color: #f5f5f5;
+}
+body.theme-dark .main-layout {
+    background: #050816;
+    color: #f5f5f5;
+}
+body.theme-dark .sidebar {
+    background: #050816;
+    border-right-color: rgba(255, 255, 255, 0.05);
+}
+body.theme-dark .content-area {
+    background: #050816;
+}
+body.theme-dark .search-bar,
+body.theme-dark .sidebar-footer,
+body.theme-dark .lecture-card {
+    background: rgba(15, 23, 42, 0.95);
+    color: #f5f5f5;
+}
+
+/* Поиск по документу (кнопка сверху справа) */
+.doc-search-panel {
+    position: absolute;
+    top: 130%;
+    right: 0;
+    display: none;
+    align-items: center;
+    gap: 6px;
+    margin-right: 40px;
+    padding: 14px 14px;
+    border-radius: 999px;
+    background: rgba(255, 255, 255, 0.96);
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.08);
+    z-index: 900;
+    width: 470px;
+}
+
+.doc-search-input {
+    border: none;
+    outline: none;
+    font-size: 1.05rem;
+    background: transparent;
+    flex: 1;
+    min-width: 0;
+}
+.doc-search-input::placeholder {
+    color: #aaa;
+}
+
+.doc-search-controls {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    margin-left: 4px;
+}
+
+.doc-search-counter {
+    font-size: 0.75rem;
+    color: #666;
+    min-width: 40px;
+    text-align: center;
+}
+
+.doc-search-arrow {
+    border: none;
+    background: transparent;
+    cursor: pointer;
+    font-size: 0.8rem;
+    padding: 2px 6px;
+    border-radius: 4px;
+    color: #555;
+}
+.doc-search-arrow:hover {
+    background: #eee;
+}
+
+.doc-search-close {
+    border: none;
+    background: transparent;
+    cursor: pointer;
+    font-size: 1rem;
+    padding: 2px 6px;
+    color: #777;
+}
+.doc-search-close:hover {
+    color: #333;
+}
+
+
+/* Поиск в тексте */
+.doc-highlight {
+    background: #fff3a3;
+    padding: 0 2px;
+    border-radius: 3px;
+}
+
+/* Текущее совпадение в тексте */
+.doc-highlight-current {
+    background: #ffd54f;
+    box-shadow: 0 0 0 1px #f6a623;
+}
+@media (max-width: 700px) {
+    .doc-search-panel {
+        width: 200px;
+        right: 10px;
+    }
+}
