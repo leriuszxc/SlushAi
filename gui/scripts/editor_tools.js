@@ -1,141 +1,165 @@
-function initEditor() {
-    const editModeBtn = document.querySelector('.edit-mode-btn');
-    const contentArea = document.getElementById('lecture-text') || document.querySelector('.lecture-content');
-    const copyBtn = document.querySelector('.copy-btn');
-
-    // Изначально включаем режим редактирования
-    if (contentArea) {
-        contentArea.contentEditable = 'true';
-
-        if (editModeBtn) {
-            const icon = editModeBtn.querySelector('i');
-            if (icon) icon.className = 'fa-solid fa-book-open';
-            editModeBtn.title = 'Режим чтения';
-        }
-    }
-
-    // Смена режима
-    if (editModeBtn && contentArea) {
-        editModeBtn.addEventListener('click', () => {
-            const isEditable = contentArea.isContentEditable;
-
-            contentArea.contentEditable = (!isEditable).toString();
-
-            if (!isEditable) {
-                const icon = editModeBtn.querySelector('i');
-                if (icon) icon.className = 'fa-solid fa-book-open';
-                editModeBtn.title = 'Режим чтения';
-            } else {
-                const icon = editModeBtn.querySelector('i');
-                if (icon) icon.className = 'fa-solid fa-pencil';
-                editModeBtn.title = 'Режим редактирования';
-                contentArea.focus();
-            }
-        });
-    }
-
-    // Копирование текста
-    if (copyBtn && contentArea) {
-        copyBtn.addEventListener('click', () => {
-            const textToCopy = contentArea.innerText;
-            const textArea = document.createElement("textarea");
-            textArea.value = textToCopy;
-            textArea.style.position = "fixed";
-            textArea.style.left = "-9999px";
-            document.body.appendChild(textArea);
-            textArea.focus();
-            textArea.select();
-            
-            try {
-                document.execCommand('copy');
-                const icon = copyBtn.querySelector('i');
-                if (icon) {
-                    const originalClass = icon.className;
-                    icon.className = 'fa-solid fa-check';
-                    setTimeout(() => { icon.className = originalClass; }, 2000);
-                }
-            } catch (err) {
-                alert('Не удалось скопировать текст.');
-            }
-            document.body.removeChild(textArea);
-        });
-    }
-}
+// ПО УМОЛЧАНИЮ: Режим редактирования ВКЛЮЧЕН
+let isEditMode = true; 
 
 function initEditor() {
     const editModeBtn = document.querySelector('.edit-mode-btn');
     const contentArea = document.getElementById('lecture-text') || document.querySelector('.lecture-content');
     const copyBtn = document.querySelector('.copy-btn');
     const bookmarkBtn = document.querySelector('.tool-btn i.fa-bookmark')?.parentElement;
+
+    if (bookmarkBtn) initBookmarkLogic(bookmarkBtn);
+    if (!contentArea) return;
+
+    // === 1. ИНИЦИАЛИЗАЦИЯ (СТАРТ) ===
     
-    // === Избранные ===
-    if (bookmarkBtn) {
-        bookmarkBtn.addEventListener('click', async () => {
-            // 1. Ищем элемент, который сейчас подсвечен (класс active) и является файлом
-            const activeElement = document.querySelector('.fs-item.file.active');
-            
-            // Если ничего не выделено или выделена папка — выходим
-            if (!activeElement) {
-                alert('Сначала выберите файл в меню слева');
-                return;
-            }
+    // Сразу включаем режим редактирования
+    contentArea.contentEditable = 'true';
+    contentArea.classList.add('raw-mode');
+    
+    // Если текст уже есть, сохраняем его в dataset
+    if (contentArea.innerText.trim().length > 0) {
+        contentArea.dataset.rawContent = contentArea.innerText;
+    }
 
-            // 2. Берем ID прямо из data-атрибута выделенного элемента
-            const currentFileId = activeElement.dataset.id;
-            
-        if (window.pywebview && window.pywebview.api) {
-            try {
-                const res = await window.pywebview.api.toggle_bookmark(currentFileId);
+    // Ставим правильную иконку
+    if (editModeBtn) updateEditIcon(editModeBtn);
+
+    // === 2. КНОПКА ПЕРЕКЛЮЧЕНИЯ ===
+    if (editModeBtn) {
+        editModeBtn.addEventListener('click', () => {
+            if (isEditMode) {
+                // >>> ПЕРЕХОД В РЕЖИМ ЧТЕНИЯ (КРАСИВО) >>>
                 
-                if (res.status === 'ok') {
-                    // Обновляем иконку
-                    updateBookmarkIcon(bookmarkBtn, currentFileId);
+                // 1. Сохраняем текущий текст
+                const rawText = contentArea.innerText;
+                contentArea.dataset.rawContent = rawText;
+                
+                // 2. Выключаем редактор
+                isEditMode = false;
+                contentArea.contentEditable = 'false';
+                contentArea.classList.remove('raw-mode');
+                
+                // 3. Рендерим Markdown
+                renderMarkdown(contentArea, rawText);
 
-                    // Обновляем сайдбар, если открыты избранные
-                    const sidebarBookmarkBtn = document.querySelector('.icon-btn i.fa-bookmark')?.parentElement;
-                    if (sidebarBookmarkBtn && sidebarBookmarkBtn.classList.contains('active') && window.renderFileSystem) {
-                        window.renderFileSystem();
-                    }
-                } else {
-                    console.error('Ошибка избранных:', res.message);
-                }
-            } catch (e) {
-                console.error('Ошибка при работе с избранными:', e);
+            } else {
+                // >>> ПЕРЕХОД В РЕЖИМ РЕДАКТИРОВАНИЯ (СЫРОЙ) >>>
+                
+                // 1. Достаем сохраненный текст
+                const rawText = contentArea.dataset.rawContent || "";
+                
+                // 2. Включаем редактор
+                isEditMode = true;
+                contentArea.innerText = rawText; // Убираем HTML, ставим текст
+                contentArea.contentEditable = 'true';
+                contentArea.classList.add('raw-mode');
+                
+                contentArea.focus();
             }
+            updateEditIcon(editModeBtn);
+        });
+    }
+
+    // === 3. АВТО-ОБНОВЛЕНИЕ ДЛЯ СОХРАНЕНИЯ ===
+    // Чтобы sidebar.js мог сохранить файл, обновляем dataset при вводе
+    contentArea.addEventListener('input', () => {
+        if (isEditMode) {
+            contentArea.dataset.rawContent = contentArea.innerText;
         }
+    });
+
+    // === 4. КОПИРОВАНИЕ ===
+    if (copyBtn) {
+        copyBtn.addEventListener('click', () => {
+            const text = contentArea.dataset.rawContent || contentArea.innerText;
+            navigator.clipboard.writeText(text).then(() => {
+                const icon = copyBtn.querySelector('i');
+                if (icon) {
+                    const old = icon.className;
+                    icon.className = 'fa-solid fa-check';
+                    setTimeout(() => icon.className = old, 2000);
+                }
+            });
         });
     }
 }
 
-// Проверка, находится ли файл в закладках
-async function isBookmarked(fileId) {
-    if (window.pywebview && window.pywebview.api) {
-        try {
-            const bookmarks = await window.pywebview.api.get_bookmarks();
-            return bookmarks.includes(fileId);
-        } catch (e) {
-            console.error(e);
-            return false;
-        }
+// === ЗАГРУЗКА ФАЙЛА (ИЗ SIDEBAR) ===
+window.loadContentIntoEditor = function(text) {
+    const contentArea = document.getElementById('lecture-text') || document.querySelector('.lecture-content');
+    if (!contentArea) return;
+
+    // Сохраняем исходник
+    contentArea.dataset.rawContent = text;
+
+    // Если мы сейчас в режиме редактирования (по дефолту да) -> показываем сырой текст
+    if (isEditMode) {
+        contentArea.innerText = text;
+        contentArea.contentEditable = 'true';
+        contentArea.classList.add('raw-mode');
+    } else {
+        // Если пользователь переключился в чтение -> рендерим
+        renderMarkdown(contentArea, text);
     }
-    return false;
+};
+
+// === РЕНДЕР ===
+function renderMarkdown(element, text) {
+    if (!text) {
+        element.innerHTML = '';
+        return;
+    }
+    if (typeof marked === 'undefined') {
+        element.innerText = text;
+        return;
+    }
+    try {
+        const html = marked.parse(text, { breaks: true, gfm: true });
+        element.innerHTML = html;
+        if (window.MathJax && window.MathJax.typesetPromise) {
+            window.MathJax.typesetPromise([element]).catch(err => {});
+        }
+    } catch (e) {
+        element.innerText = text;
+    }
 }
 
-// Обновление иконки избранных
-async function updateBookmarkIcon(btn, fileId) {
+// === UI ===
+function updateEditIcon(btn) {
     const icon = btn.querySelector('i');
     if (!icon) return;
-    
-    const bookmarked = await isBookmarked(fileId);
-    
-    if (bookmarked) {
-        icon.className = 'fa-solid fa-bookmark'; // Заполненная иконка
-        btn.title = 'Удалить из закладок';
+
+    if (isEditMode) {
+        // Сейчас Редактирование -> Кнопка предлагает "Читать"
+        icon.className = 'fa-solid fa-book-open'; 
+        btn.title = 'Перейти в режим чтения';
     } else {
-        icon.className = 'fa-regular fa-bookmark'; // Пустая иконка
-        btn.title = 'Добавить в избранные';
+        // Сейчас Чтение -> Кнопка предлагает "Редактировать"
+        icon.className = 'fa-solid fa-pen-nib'; 
+        btn.title = 'Режим редактирования';
     }
 }
 
-// Делаем функцию глобальной для вызова из sidebar.js
-window.updateBookmarkIcon = updateBookmarkIcon;
+// === ЗАКЛАДКИ ===
+function initBookmarkLogic(btn) {
+    btn.addEventListener('click', async () => {
+        const activeElement = document.querySelector('.fs-item.file.active');
+        if (!activeElement) return;
+        if (window.pywebview?.api) {
+            try {
+                const res = await window.pywebview.api.toggle_bookmark(activeElement.dataset.id);
+                if (res.status === 'ok') updateBookmarkIcon(btn, activeElement.dataset.id);
+            } catch(e){}
+        }
+    });
+}
+window.updateBookmarkIcon = async function(btn, fileId) {
+    const icon = btn.querySelector('i');
+    if (!icon) return;
+    if (window.pywebview?.api) {
+        try {
+            const b = await window.pywebview.api.get_bookmarks();
+            icon.className = b.includes(fileId) ? 'fa-solid fa-bookmark' : 'fa-regular fa-bookmark';
+        } catch(e) {}
+    }
+};

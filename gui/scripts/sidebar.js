@@ -79,7 +79,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         const sortedData = sortData([...filteredData]);
 
         // Если включен режим избранных и список пуст
-if (bookmarksFilter && sortedData.length === 0) {
+        if (bookmarksFilter && sortedData.length === 0) {
             container.innerHTML = '<div style="padding:20px; color:#888; text-align:center; font-size: 14px;">Пока тут ничего нет :(</div>';
             
             //Очищаем правую область если в избранных ничего нет
@@ -547,7 +547,7 @@ if (bookmarksFilter && sortedData.length === 0) {
         return false;
     }
     
-    // TODO
+    // Обновленная функция для работы с Блочным Редактором
     function updateContentArea(title, content, fullPathId) {
         const titleEl = document.getElementById('lecture-title');
         const contentSection = document.getElementById('lecture-text');
@@ -555,31 +555,44 @@ if (bookmarksFilter && sortedData.length === 0) {
         if (titleEl) titleEl.textContent = title;
         
         if (contentSection) {
-            // Делаем область редактируемой
-            contentSection.setAttribute('contenteditable', 'true');
-            contentSection.style.outline = 'none'; // Убираем рамку при фокусе
-            
-            // Записываем текст
-            // innerText сохраняет переносы строк лучше, чем innerHTML с <p> для редактора
-            contentSection.innerText = content; 
+            // === 1. ЗАГРУЗКА В РЕДАКТОР ===
+            // Проверяем, подключен ли наш новый скрипт (editor_tools.js)
+            if (window.loadContentIntoEditor) {
+                // Используем новую логику: разбивка на блоки, MathJax и т.д.
+                window.loadContentIntoEditor(content);
+            } else {
+                // Фолбэк если скрипт не прогрузился
+                contentSection.setAttribute('contenteditable', 'true');
+                contentSection.style.outline = 'none';
+                contentSection.innerText = content;
+            }
 
-            // === ЛОГИКА АВТОСОХРАНЕНИЯ ===
-            contentSection.oninput = () => {
+            // === 2. ЛОГИКА АВТОСОХРАНЕНИЯ ===
+            // Удаляем старый oninput, используем addEventListener, 
+            // так как события из блоков (textarea) будут "всплывать" сюда.
+            contentSection.oninput = null; 
+            
+            contentSection.addEventListener('input', () => {
                 // Сбрасываем предыдущий таймер
                 if (saveTimeout) clearTimeout(saveTimeout);
 
-                // Ставим новый таймер на 1 секунду
+                // Ставим новый таймер (лучше 1000мс, чтобы не спамить при каждом нажатии)
                 saveTimeout = setTimeout(async () => {
                     if (fullPathId && window.pywebview && window.pywebview.api) {
-                        const currentText = contentSection.innerText;
-                        console.log("Автосохранение...");
-                        const res = await window.pywebview.api.save_file_content(fullPathId, currentText);
+                        
+                        // ВАЖНО: Если работает блочный редактор, актуальный текст лежит в dataset.rawContent.
+                        // Если старый режим — берем innerText.
+                        const textToSave = contentSection.dataset.rawContent || contentSection.innerText;
+                        
+                        console.log("Автосохранение...", fullPathId);
+                        const res = await window.pywebview.api.save_file_content(fullPathId, textToSave);
+                        
                         if (res.status !== 'ok') {
                             console.error("Ошибка сохранения:", res.message);
                         }
                     }
-                }, 50); // Задержка 50 мс
-            };
+                }, 1000); 
+            });
         }
     }
 
