@@ -138,7 +138,7 @@
     <!-- Верхняя панель -->
     <header class="top-bar">
         <div class="logo-area">
-            <div class="main-logo">Слуш<span class="logo-accent">Ай</span></div>
+            <div class="btn-logo">Слуш<span class="logo-accent">Ай</span></div>
             <button class="icon-btn"><i class="fa-regular fa-folder"></i></button>
             <button class="icon-btn"><i class="fa-regular fa-bookmark"></i></button>
         </div>
@@ -346,6 +346,87 @@
             </div>
         </div>
     </div>
+
+    <!-- === МОДАЛЬНОЕ ОКНО ЗАГРУЗКИ АУДИО === -->
+    <div id="audio-upload-modal" class="audio-modal">
+        <div class="audio-modal-overlay"></div>
+        <div class="audio-modal-content">
+            <!-- Левая панель -->
+            <div class="audio-left-panel">
+                <div class="audio-panel-title">У вас нет загруженных аудио файлов</div>
+                <div class="audio-empty-message" id="audio-empty-message">
+                    Загрузите аудиофайлы для создания транскрибации
+                </div>
+                <ul class="audio-file-list" id="audio-file-list" style="display: none;">
+                    <!-- Список файлов будет добавлен через JS -->
+                </ul>
+            </div>
+
+            
+            <!-- Правая панель -->
+            <div class="audio-right-panel">
+                <button class="audio-close-btn" id="audio-close-btn">
+                    <i class="fa-solid fa-xmark"></i>
+                </button>
+                
+                <div class="audio-upload-section">
+                    <h2 class="audio-upload-title">
+                        Загрузите аудио файл(ы) для создания<br>транскрибации
+                    </h2>
+                    <button class="audio-upload-btn" id="audio-upload-btn">
+                        <i class="fa-solid fa-upload"></i>
+                        Загрузить аудиофайлы
+                    </button>
+                    <div class="audio-file-format">mp3</div>
+                    
+                    <!-- Кнопка "Создать транскрибацию" (скрыта по умолчанию, если загрузить аудиофайл появится) -->
+                    <button class="audio-create-transcription-btn" id="audio-create-transcription-btn" style="display: none;">
+                        Создать транскрибацию
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+    <!-- === КОНЕЦ МОДАЛЬНОГО ОКНА === -->
+
+    <!-- === МОДАЛЬНОЕ ОКНО АУДИОПЛЕЕРА === -->
+    <div id="audio-player-modal" class="audio-player-modal">
+        <div class="audio-player-content">
+            <h2 class="audio-player-title" id="audio-player-title">Лекция по мат.анализу</h2>
+            <div class="audio-player-date" id="audio-player-date">22.09.2025 22:04</div>
+            
+            <div class="audio-player-controls">
+                <div class="audio-time-display">
+                    <span class="audio-current-time" id="audio-current-time">3:02</span>
+                    <span class="audio-total-time" id="audio-total-time">4:22</span>
+                </div>
+                
+                <input type="range" class="audio-progress-bar" id="audio-progress-bar" 
+                    min="0" max="100" value="0">
+                
+                <div class="audio-control-buttons">
+                    <button class="audio-control-btn" id="audio-prev-btn">
+                        <i class="fa-solid fa-backward-step"></i>
+                    </button>
+                    <button class="audio-control-btn" id="audio-rewind-btn">
+                        <i class="fa-solid fa-chevron-left"></i>
+                    </button>
+                    <button class="audio-control-btn audio-play-pause" id="audio-play-pause-btn">
+                        <i class="fa-solid fa-pause"></i>
+                    </button>
+                    <button class="audio-control-btn" id="audio-forward-btn">
+                        <i class="fa-solid fa-chevron-right"></i>
+                    </button>
+                    <button class="audio-control-btn" id="audio-next-btn">
+                        <i class="fa-solid fa-forward-step"></i>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+    <!-- === КОНЕЦ МОДАЛЬНОГО ОКНА АУДИОПЛЕЕРА === -->
+
+
     <!-- Конфигурация MathJax -->
     <script>
     window.MathJax = {
@@ -376,5 +457,8 @@
     <script src="scripts/dashboard.js"></script>
     <script src="scripts/zoom.js"></script>
     <script src="scripts/editor_toolbar.js"></script>
+    <script src="scripts/transcription.js"></script>
+    <script src="scripts/audio_modal.js"></script>
+    <script src="scripts/audio_player.js"></script>
 </body>
 </html>
