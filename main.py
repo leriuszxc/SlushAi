@@ -981,4 +981,4 @@ if __name__ == '__main__':
     # ВАЖНО: Передаем ссылку на окно внутрь API, чтобы Python мог вызывать JS
     api.window = window 
     threading.Thread(target=monitor_changes, args=(window, api), daemon=True).start()
-    webview.start(debug=True)
+    webview.start(debug=False)

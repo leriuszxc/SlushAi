@@ -562,6 +562,8 @@ body, html {
 .lecture-content {
     position: relative;
     box-sizing: border-box;
+    outline: none;       /* Убираем синюю рамку */
+    min-height: 200px;   /* Чтобы было куда кликнуть, если текст короткий */
 }
 
 .lecture-content p {
@@ -1421,4 +1423,7 @@ body.theme-dark .lecture-card {
     cursor: not-allowed;
 }
 
-/* === КОНЕЦ МОДАЛЬНОГО ОКНА АУДИОПЛЕЕРА === */
+/* Темная тема */
+body.theme-dark .lecture-content.raw-mode {
+    color: #e0e0e0;
+}
