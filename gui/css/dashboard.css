@@ -262,7 +262,7 @@ body, html {
     gap: 4px;
 }
 
-.main-logo {
+.btn-logo {
     font-weight: 900;
     font-size: 1.0em;
     background: #fff;
@@ -270,7 +270,11 @@ body, html {
     border-radius: 20px;
     box-shadow: 0 2px 8px rgba(0,0,0,0.05);
     color: #333;
+    cursor: pointer;
+    transition: all 0.2s;
+    border: none;
 }
+
 
 .logo-accent {
     color: #0097a7;
@@ -939,3 +943,482 @@ body.theme-dark .lecture-card {
         right: 10px;
     }
 }
+
+/* === МОДАЛЬНОЕ ОКНО ЗАГРУЗКИ АУДИО === */
+.audio-modal {
+    display: none;
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    z-index: 9999;
+}
+
+.audio-modal.active {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+/* Затемненный фон */
+.audio-modal-overlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0, 0, 0, 0.5);
+    backdrop-filter: blur(3px);
+}
+
+/* Контейнер модального окна */
+.audio-modal-content {
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 30px;
+    width: 100%;
+    height: 100%;
+    z-index: 10000;
+    padding: 0 40px;
+}
+
+/* Левая панель - у левого края, на всю высоту */
+.audio-left-panel {
+    position: absolute;
+    left: 0;
+    top: 0;
+    bottom: 0;
+    width: 320px;
+    padding: 40px 30px;
+    background: white;
+    border-radius: 0 20px 20px 0;
+    box-shadow: 4px 0 30px rgba(0, 0, 0, 0.15);
+    overflow-y: auto;
+    animation: modalSlideInLeft 0.3s ease-out;
+}
+
+@keyframes modalSlideInLeft {
+    from {
+        opacity: 0;
+        transform: translateX(-100%);
+    }
+    to {
+        opacity: 1;
+        transform: translateX(0);
+    }
+}
+
+.audio-panel-title {
+    font-size: 16px;
+    font-weight: 600;
+    margin-bottom: 20px;
+    color: #333;
+    text-align: center;
+}
+
+.audio-empty-message {
+    text-align: center;
+    color: #999;
+    padding: 60px 20px;
+    font-size: 14px;
+    line-height: 1.6;
+}
+
+.audio-file-list {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+}
+
+.audio-file-list li {
+    padding: 12px 15px;
+    margin-bottom: 8px;
+    background: #f8f9fa;
+    border-radius: 8px;
+    font-size: 13px;
+    cursor: pointer;
+    transition: all 0.2s;
+    border: 1px solid #e0e0e0;
+}
+
+.audio-file-list li:hover {
+    background: #e8f4fd;
+    border-color: #007bff;
+}
+
+/* Правая панель - по центру, меньшая ширина */
+.audio-right-panel {
+    position: relative;
+    width: 100%;
+    max-width: 550px;
+    padding: 60px 50px;
+    background: white;
+    border-radius: 20px;
+    box-shadow: 0 10px 50px rgba(0, 0, 0, 0.25);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    animation: modalSlideInCenter 0.4s ease-out;
+    margin-left: auto;
+    margin-right: auto;
+}
+
+@keyframes modalSlideInCenter {
+    from {
+        opacity: 0;
+        transform: scale(0.9) translateY(20px);
+    }
+    to {
+        opacity: 1;
+        transform: scale(1) translateY(0);
+    }
+}
+
+.audio-close-btn {
+    position: absolute;
+    top: 20px;
+    right: 20px;
+    width: 40px;
+    height: 40px;
+    border: none;
+    background: #f0f0f0;
+    border-radius: 50%;
+    cursor: pointer;
+    font-size: 20px;
+    color: #666;
+    transition: all 0.2s;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 10;
+}
+
+.audio-close-btn:hover {
+    background: #e0e0e0;
+    color: #000;
+    transform: rotate(90deg);
+}
+
+.audio-upload-section {
+    text-align: center;
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 20px;
+}
+
+.audio-upload-title {
+    font-size: 22px;
+    font-weight: 600;
+    color: #333;
+    line-height: 1.4;
+}
+
+.audio-upload-btn {
+    background: white;
+    border: 2px solid #ddd;
+    padding: 15px 40px;
+    border-radius: 30px;
+    font-size: 16px;
+    cursor: pointer;
+    transition: all 0.3s;
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+    font-weight: 500;
+}
+
+.audio-upload-btn:hover {
+    border-color: #007bff;
+    color: #007bff;
+    transform: translateY(-2px);
+    box-shadow: 0 4px 15px rgba(0, 123, 255, 0.2);
+}
+
+.audio-upload-btn i {
+    font-size: 18px;
+}
+
+.audio-file-format {
+    margin-top: 15px;
+    font-size: 12px;
+    color: #999;
+    font-weight: 500;
+}
+
+/* Адаптивность для маленьких экранов */
+@media (max-width: 900px) {
+    .audio-modal-content {
+        flex-direction: column;
+        padding: 0;
+        gap: 0;
+    }
+    
+    .audio-left-panel {
+        position: relative;
+        width: 100%;
+        max-height: 200px;
+        border-radius: 0;
+    }
+    
+    .audio-right-panel {
+        padding: 40px 30px;
+        max-width: 90%;
+    }
+}
+
+/* Кнопка "Создать транскрибацию" в ПРАВОЙ панели */
+.audio-create-transcription-btn {
+    color: rgb(35, 136, 10);
+    background: white;
+    border: 2px solid #ddd;
+    padding: 15px 40px;
+    border-radius: 30px;
+    font-size: 16px;
+    cursor: pointer;
+    transition: all 0.3s;
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+    font-weight: 500;
+     margin-top: 10px;
+}
+
+.audio-create-transcription-btn:hover {
+    background: #ffffff;
+    transform: translateY(-2px);
+    box-shadow: 0 5px 15px rgba(0, 0, 0, 0.4);
+}
+
+/* === КОНЕЦ СТИЛЕЙ МОДАЛЬНОГО ОКНА === */
+
+/* === МОДАЛЬНОЕ ОКНО АУДИОПЛЕЕРА === */
+.audio-player-modal {
+    display: none;
+    position: fixed;
+    top: 80px;
+    right: 40px;
+    z-index: 10001; /* Выше затемнённого фона */
+    animation: slideInFromRight 0.3s ease-out;
+}
+
+.audio-player-modal.active {
+    display: block;
+}
+
+@keyframes slideInFromRight {
+    from {
+        opacity: 0;
+        transform: translateX(50px);
+    }
+    to {
+        opacity: 1;
+        transform: translateX(0);
+    }
+}
+
+.audio-player-content {
+    background: white;
+    border-radius: 30px;
+    padding: 35px 40px;
+    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.3);
+    min-width: 380px;
+    max-width: 380px; /* Уменьшаем ширину */
+    text-align: center;
+}
+
+.audio-player-title {
+    font-size: 20px;
+    font-weight: 700;
+    margin-bottom: 6px;
+    color: #222;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.audio-player-date {
+    font-size: 13px;
+    color: #888;
+    margin-bottom: 25px;
+}
+
+.audio-time-display {
+    display: flex;
+    justify-content: space-between;
+    margin-bottom: 12px;
+    font-size: 18px;
+    font-weight: 600;
+    color: #333;
+}
+
+.audio-progress-bar {
+    width: 100%;
+    height: 8px;
+    border-radius: 4px;
+    background: #e0e0e0;
+    outline: none;
+    cursor: pointer;
+    margin-bottom: 25px;
+    -webkit-appearance: none;
+    appearance: none;
+}
+
+.audio-progress-bar::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    width: 20px;
+    height: 20px;
+    border-radius: 50%;
+    background: #333;
+    cursor: pointer;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2);
+}
+
+.audio-progress-bar::-moz-range-thumb {
+    width: 20px;
+    height: 20px;
+    border-radius: 50%;
+    background: #333;
+    cursor: pointer;
+    border: none;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2);
+}
+
+.audio-control-buttons {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 12px;
+}
+
+.audio-control-btn {
+    width: 55px;
+    height: 55px;
+    border-radius: 50%;
+    border: none;
+    background: #f5f5f5;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 18px;
+    color: #333;
+    transition: all 0.2s;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1); /* Тень для кнопок */
+}
+
+.audio-control-btn:hover {
+    background: #e8e8e8;
+    transform: scale(1.05);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+.audio-control-btn.audio-play-pause {
+    width: 65px;
+    height: 65px;
+    background: #fff;
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+    font-size: 22px;
+}
+
+.audio-control-btn.audio-play-pause:hover {
+    background: #fafafa;
+    box-shadow: 0 6px 18px rgba(0, 0, 0, 0.25);
+}
+
+.audio-control-btn:disabled {
+    opacity: 0.3;
+    cursor: not-allowed;
+    box-shadow: none;
+}
+
+/* === СТИЛИ ДЛЯ СПИСКА АУДИОФАЙЛОВ С КНОПКАМИ === */
+.audio-file-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px;
+    margin-bottom: 8px;
+    background: #f8f9fa;
+    border-radius: 10px;
+    border: 1px solid #e0e0e0;
+    transition: all 0.2s;
+}
+
+.audio-file-item:hover {
+    background: #e8f4fd;
+    border-color: #007bff;
+}
+
+.audio-file-play-btn {
+    width: 32px;
+    height: 32px;
+    min-width: 32px;
+    border-radius: 50%;
+    border: none;
+    background: #007bff;
+    color: white;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 12px;
+    transition: all 0.2s;
+    box-shadow: 0 2px 6px rgba(0, 123, 255, 0.3);
+}
+
+.audio-file-play-btn:hover {
+    background: #0056b3;
+    transform: scale(1.1);
+    box-shadow: 0 4px 10px rgba(0, 123, 255, 0.4);
+}
+
+.audio-file-name {
+    flex: 1;
+    font-size: 13px;
+    color: #333;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.audio-file-actions {
+    display: flex;
+    gap: 4px;
+}
+
+.audio-file-action-btn {
+    width: 28px;
+    height: 28px;
+    border-radius: 6px;
+    border: none;
+    background: transparent;
+    color: #666;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 14px;
+    transition: all 0.2s;
+}
+
+.audio-file-action-btn:hover {
+    background: rgba(0, 0, 0, 0.05);
+    color: #333;
+}
+
+.audio-file-action-btn.delete:hover {
+    background: rgba(220, 53, 69, 0.1);
+    color: #dc3545;
+}
+
+.audio-file-action-btn:disabled {
+    opacity: 0.3;
+    cursor: not-allowed;
+}
+
+/* === КОНЕЦ МОДАЛЬНОГО ОКНА АУДИОПЛЕЕРА === */
