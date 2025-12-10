@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Загрузка...</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen-Sans, Ubuntu, Cantarell, sans-serif;
+            background: #ffffff;
+            color: #dcddde;
+        }
+
+        .loader-container {
+            text-align: center;
+            width: 400px;
+        }
+
+        .logo {
+            font-size: 45px;
+            font-weight: 700;
+            margin-bottom: 40px;
+            
+            background: linear-gradient(45deg, #000000 30%, #00BBFF 70%);
+            -webkit-background-clip: text;
+            -moz-background-clip: text;
+            background-clip: text;
+            color: transparent;
+        }
+
+        .loading-info {
+            margin-bottom: 12px;
+        }
+
+        .loading-text {
+            font-size: 13px;
+            color: #9a9a9a;
+            margin-bottom: 16px;
+        }
+
+        .progress-bar-container {
+            width: 100%;
+            height: 4px;
+            background: rgb(236, 236, 236);
+            border-radius: 2px;
+            overflow: hidden;
+        }
+
+        .progress-bar {
+            height: 100%;
+            background: #0092c7;
+            border-radius: 2px;
+            animation: indeterminate 3.0s ease-in-out infinite;
+            transform-origin: left;
+        }
+
+        @keyframes indeterminate {
+            0% {
+                transform: translateX(-100%) scaleX(0.1);
+            }
+            100% {
+                transform: translateX(100%) scaleX(0.9);
+            }
+        }
+
+        .error {
+            color: #868686;
+            margin-top: 20px;
+            font-size: 6px;
+        }
+    </style>
+</head>
+<body>
+    <div class="loader-container">
+        <div class="logo">СлушАй</div>
+        
+        <div class="loading-info">
+            <div class="loading-text">Загрузка библиотек...</div>
+            <div class="progress-bar-container">
+                <div class="progress-bar"></div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const checkInterval = setInterval(() => {
+            if (window.librariesLoaded === true) {
+                console.log('Библиотеки загружены, переход на dashboard...');
+                clearInterval(checkInterval);
+                window.location.href = 'dashboard.html';
+            }
+        }, 300);
+        
+        setTimeout(() => {
+            if (window.librariesLoaded !== true) {
+                clearInterval(checkInterval);
+                document.querySelector('.loading-info').innerHTML = 
+                    '<div class="error">Ошибка загрузки. Перезапустите приложение.</div>';
+            }
+        }, 30000);
+    </script>
+</body>
+</html>
