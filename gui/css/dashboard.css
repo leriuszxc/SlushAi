@@ -265,16 +265,23 @@ body, html {
 .btn-logo {
     font-weight: 900;
     font-size: 1.0em;
-    background: #fff;
+    background: #fff; /* Фон кнопки белый */
     padding: 9px 80px;
     border-radius: 20px;
     box-shadow: 0 2px 8px rgba(0,0,0,0.05);
-    color: #333;
     cursor: pointer;
     transition: all 0.2s;
     border: none;
 }
 
+.btn-logo span {
+    background: linear-gradient(45deg, #000000 30%, #00BBFF 90%);
+    -webkit-background-clip: text;
+    background-clip: text;
+    -webkit-text-fill-color: transparent;
+    color: transparent;
+    display: inline-block; /* Важно для работы градиента */
+}
 
 .logo-accent {
     color: #0097a7;
