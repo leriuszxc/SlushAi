@@ -44,16 +44,29 @@ if not os.path.exists(BD_HISTORY_DIR):
 
 class ConfigManager:
     """ Класс для управления конфигом """
+    
     @staticmethod
     def load():
+        default_config = {
+            "zoom": 1.0, 
+            "theme": "light", 
+            "last_opened_file": "",
+            "bookmarks": []
+        }
+        
         if not os.path.exists(CONFIG_PATH):
-            """ Конфиг по умолчанию, если файла нет """
-            return {"zoom": 1.0, "theme": "light", "last_opened_file": ""}
+            return default_config
+            
         try:
             with open(CONFIG_PATH, 'r', encoding='utf-8') as f:
-                return json.load(f)
+                data = json.load(f)
+                # Если в файле каких-то полей нет, дополняем дефолтными
+                for key, value in default_config.items():
+                    if key not in data:
+                        data[key] = value
+                return data
         except Exception:
-            return {"zoom": 1.0, "theme": "light", "last_opened_file": ""}
+            return default_config
 
     @staticmethod
     def save(data):
@@ -65,6 +78,7 @@ class ConfigManager:
         
         with open(CONFIG_PATH, 'w', encoding='utf-8') as f:
             json.dump(current_config, f, indent=4, ensure_ascii=False)
+
 
 class Api:
     def __init__(self):
@@ -131,23 +145,58 @@ class Api:
         items.sort(key=lambda x: (x['type'] != 'folder', x['name'].lower()))
         return items
     
-    def create_folder(self, name):
-        """ 
-        СОЗДАНИЕ ПАПКИ
-        Создаем папку в корне 
-        """
+    def create_file(self, parent_id, file_name):
         try:
-            path = os.path.join(DATA_DIR, name)
-            if not os.path.exists(path):
-                os.makedirs(path)
-                return {"status": "ok"}
-            return {"status": "error", "message": "Папка уже существует"}
+            # 1. ЗАПРЕТ НА КОРЕНЬ
+            # Если parent_id нет, значит пытаются создать в DATA_DIR (в корне), а это "табу".
+            if not parent_id:
+                return {"status": "error", "message": "Создание файлов в корне запрещено. Выберите проект."}
+            
+            if os.path.isabs(parent_id):
+                target_dir = parent_id
+            else:
+                target_dir = os.path.join(DATA_DIR, parent_id)
+            
+            # ВАЖНО: Проверяем, существует ли папка, в которую хотим сохранить
+            if not os.path.exists(target_dir):
+                return {"status": "error", "message": f"Папка проекта не найдена: {target_dir}"}
+
+            # 2. Гарантируем расширение .txt
+            if not file_name.endswith('.txt'):
+                file_name += '.txt'
+            
+            file_path = os.path.join(target_dir, file_name)
+            
+            # 3. Логика уникального имени (1), (2)...
+            base_name, ext = os.path.splitext(file_name)
+            counter = 1
+            final_name = file_name
+            final_path = file_path
+
+            while os.path.exists(final_path):
+                final_name = f"{base_name} ({counter}){ext}"
+                final_path = os.path.join(target_dir, final_name)
+                counter += 1
+
+            # 4. Создаем файл
+            with open(final_path, 'w', encoding='utf-8') as f:
+                f.write("")
+            
+            # 5. Возвращаем результат
+            ui_name = final_name.replace('.txt', '')
+            return {"status": "ok", "name": ui_name, "id": final_path}
+            
         except Exception as e:
             return {"status": "error", "message": str(e)}
 
-    def create_file(self, parent_id, file_name):
-        """ СОЗДАНИЕ ФАЙЛА """
+
+
+    def create_folder(self, name, parent_id=None):
+        """
+        СОЗДАНИЕ ПАПКИ (ПРОЕКТА)
+        """
         try:
+            # Если parent_id пустой или None — создаем в корне
             if not parent_id:
                 target_dir = DATA_DIR
             elif os.path.isabs(parent_id):
@@ -155,18 +204,28 @@ class Api:
             else:
                 target_dir = os.path.join(DATA_DIR, parent_id)
             
-            if not file_name.endswith('.txt'):
-                file_name += '.txt'
+            # Проверка существования родителя
+            if not os.path.exists(target_dir):
+                return {'status': 'error', 'message': f'Родительская папка не найдена: {target_dir}'}
+
+            base_name = name
+            path = os.path.join(target_dir, name)
             
-            file_path = os.path.join(target_dir, file_name)
+            # Уникальное имя (1), (2)...
+            counter = 1
+            final_name = name
             
-            if not os.path.exists(file_path):
-                with open(file_path, 'w', encoding='utf-8') as f:
-                    f.write("")
-                return {"status": "ok"}
-            return {"status": "error", "message": "Файл уже существует"}
+            while os.path.exists(path):
+                final_name = f"{base_name} ({counter})"
+                path = os.path.join(target_dir, final_name)
+                counter += 1
+            
+            os.makedirs(path)
+            # Возвращаем status, name и id (полный путь)
+            return {'status': 'ok', 'name': final_name, 'id': path}
         except Exception as e:
-            return {"status": "error", "message": str(e)}
+            return {'status': 'error', 'message': str(e)}
+
 
     def read_file(self, full_path, ignored_name=None):
         """ 
@@ -273,47 +332,72 @@ class Api:
             return {"status": "error", "message": str(e)}
 
     def rename_item(self, item_path, new_name):
-        """
-        Переименовывает файл или папку.
-        
-        Args:
-            item_path (str): Относительный путь (ID) к элементу.
-            new_name (str): Новое имя (без пути, просто имя файла/папки).
-        """
         try:
             # Формируем полный путь к исходному файлу
             full_path = os.path.normpath(os.path.join(DATA_DIR, item_path))
             base_dir = os.path.normpath(os.path.abspath(DATA_DIR))
-
+            
             # ПРОВЕРКА БЕЗОПАСНОСТИ
             if os.path.commonpath([base_dir, full_path]) != base_dir:
-                 return {"status": "error", "message": "Доступ запрещен"}
-
+                return {"status": "error", "message": "Доступ запрещен"}
+            
             if not os.path.exists(full_path):
                 return {"status": "error", "message": "Объект не найден"}
             
-            # Определяем папку, где лежит файл (чтобы новое имя осталось в той же папке)
+            # Определяем папку, где лежит файл
             parent_dir = os.path.dirname(full_path)
+            is_file = os.path.isfile(full_path)
             
-            """
-            # Логика расширения .txt (сохраняем поведение)
-            # Если это файл и пользователь не ввел расширение .txt - добавляем его
-            """
-            if os.path.isfile(full_path) and not new_name.endswith('.txt'):
+            # Логика расширения .txt для файлов
+            if is_file and not new_name.endswith('.txt'):
                 new_name += '.txt'
-                
-            # Формируем полный путь назначения
-            new_path = os.path.join(parent_dir, new_name)
             
-            # Проверяем, не занято ли имя
-            if os.path.exists(new_path):
-                return {"status": "error", "message": "Имя уже занято"}
+            # Исходное желаемое имя
+            final_name = new_name
+            new_path = os.path.join(parent_dir, final_name)
+            
+            # --- ЛОГИКА ПОДБОРА УНИКАЛЬНОГО ИМЕНИ ---
+            root_name, ext = os.path.splitext(final_name)
+            counter = 1
+            
+            # Пока путь занят
+            while os.path.exists(new_path):
+                # Если файл существует и это тот же самый файл (например, меняем регистр A.txt -> a.txt), 
+                # то считать его занятым не нужно.
+                if os.path.samefile(full_path, new_path):
+                    break
                 
+                # Формируем новое имя: name (1).txt
+                final_name = f"{root_name} ({counter}){ext}"
+                new_path = os.path.join(parent_dir, final_name)
+                counter += 1
+            # ----------------------------------------
+            
+            # --- ОБНОВЛЕНИЕ ЗАКЛАДОК (BOOKMARKS) ---
+            bookmarks = self.config.get('bookmarks', [])
+            if full_path in bookmarks:
+                bookmarks.remove(full_path)
+                bookmarks.append(new_path)
+                
+                self.config['bookmarks'] = bookmarks
+                ConfigManager.save({'bookmarks': bookmarks})
+            # ---------------------------------------
+
             os.rename(full_path, new_path)
-            return {"status": "ok"}
             
+            # Подготовка имени для UI (убираем .txt если это файл)
+            ui_name = final_name
+            if is_file and ui_name.endswith('.txt'):
+                ui_name = ui_name[:-4]
+            
+            # Возвращаем новые данные
+            return {"status": "ok", "new_id": new_path, "name": ui_name}
+        
         except Exception as e:
             return {"status": "error", "message": str(e)}
+
+
+
 
     def move_item(self, source_path, target_folder_path):
         """
@@ -619,15 +703,8 @@ class Api:
             return {"status": "error", "message": str(e)}
             
     def get_bookmarks(self):
-        """Получить список избранных"""
-        bookmarks_file = os.path.join('config', 'bookmarks.json')
-        if os.path.exists(bookmarks_file):
-            try:
-                with open(bookmarks_file, 'r', encoding='utf-8') as f:
-                    return json.load(f)
-            except Exception:
-                return []
-        return []
+        """ Возвращает список закладок из конфига """
+        return self.config.get('bookmarks', [])
 
     def add_bookmark(self, file_id):
         """Добавить файл в избранные"""
@@ -668,14 +745,27 @@ class Api:
         except Exception as e:
             return {"status": "error", "message": str(e)}
 
-    def toggle_bookmark(self, file_id):
-        """Переключить состояние избранных"""
-        bookmarks = self.get_bookmarks()
-        
-        if file_id in bookmarks:
-            return self.remove_bookmark(file_id)
-        else:
-            return self.add_bookmark(file_id)
+    def toggle_bookmark(self, file_path):
+        """ Переключает закладку для файла """
+        try:
+            # Нормализуем путь
+            full_path = os.path.normpath(os.path.join(DATA_DIR, file_path))
+            
+            # Получаем текущие закладки
+            bookmarks = self.config.get('bookmarks', [])
+            
+            if full_path in bookmarks:
+                bookmarks.remove(full_path)
+            else:
+                bookmarks.append(full_path)
+            
+            # Сохраняем в память и в файл
+            self.config['bookmarks'] = bookmarks
+            ConfigManager.save({'bookmarks': bookmarks})
+            
+            return {"status": "ok", "bookmarks": bookmarks}
+        except Exception as e:
+            return {"status": "error", "message": str(e)}
         
     def upload_audio_file(self):
         """

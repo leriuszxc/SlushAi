@@ -56,53 +56,55 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     // === 3. РЕНДЕРИНГ ИЗБРАННЫХ ===
     //Отрисовка избранных на левой панели
-    async function render() {
+async function render() {
+    container.innerHTML = '';
+    
+    let dataToRender = fileSystem;
+
+    // ФИЛЬТР ПО ИЗБРАННЫМ
+    if (bookmarksFilter) {    
+        if (window.pywebview && window.pywebview.api) {
+            try {
+                const bookmarks = await window.pywebview.api.get_bookmarks();
+                dataToRender = filterBookmarksTree(fileSystem, bookmarks);
+            } catch (e) {
+                console.error("Ошибка загрузки избарнных:", e);
+            }
+        }
+        // Очищаем лоадер перед отрисовкой
         container.innerHTML = '';
-        
-        let dataToRender = fileSystem;
-
-        // ФИЛЬТР ПО ИЗБРАННЫМ
-        if (bookmarksFilter) {    
-            if (window.pywebview && window.pywebview.api) {
-                try {
-                    const bookmarks = await window.pywebview.api.get_bookmarks();
-                    dataToRender = filterBookmarksTree(fileSystem, bookmarks);
-                } catch (e) {
-                    console.error("Ошибка загрузки избарнных:", e);
-                }
-            }
-            // Очищаем лоадер перед отрисовкой
-            container.innerHTML = '';
-        }
-
-        const filteredData = filterData(dataToRender, searchQuery);
-        const sortedData = sortData([...filteredData]);
-
-        // Если включен режим избранных и список пуст
-        if (bookmarksFilter && sortedData.length === 0) {
-            container.innerHTML = '<div style="padding:20px; color:#888; text-align:center; font-size: 14px;">Пока тут ничего нет :(</div>';
-            
-            //Очищаем правую область если в избранных ничего нет
-            const titleEl = document.getElementById('lecture-title');
-            const contentSection = document.getElementById('lecture-text');
-            
-            if (titleEl) titleEl.textContent = '';
-            if (contentSection) {
-                contentSection.innerText = '';
-                contentSection.contentEditable = 'false'; // Запрещаем писать в пустоту
-            }
-            // Сбрасываем активный ID, чтобы ничего не было выделено
-            activeFolderId = null;
-        } 
-        // Если обычный режим, но поиск ничего не дал
-        else if (sortedData.length === 0 && searchQuery) {
-             container.innerHTML = '<div style="padding:20px; color:#888; text-align:center;">Ничего не найдено</div>';
-        } 
-        // Обычная отрисовка
-        else {
-            renderRecursive(sortedData, container, 0);
-        }
     }
+
+    const filteredData = filterData(dataToRender, searchQuery);
+    const sortedData = sortData([...filteredData]);
+
+    // Если включен режим избранных и список пуст
+    if (bookmarksFilter && sortedData.length === 0) {
+        container.innerHTML = '<div style="padding:20px; color:#888; text-align:center; font-size: 14px;">Пока тут ничего нет :(</div>';
+        
+        //Очищаем правую область если в избранных ничего нет
+        const titleEl = document.getElementById('lecture-title');
+        const contentSection = document.getElementById('lecture-text');
+        
+        if (titleEl) titleEl.textContent = '';
+        if (contentSection) {
+            contentSection.innerText = '';
+            contentSection.contentEditable = 'false'; // Запрещаем писать в пустоту
+        }
+        // Сбрасываем активный ID, чтобы ничего не было выделено
+        activeFolderId = null;
+    } 
+    // Если обычный режим, но поиск ничего не дал
+    else if (sortedData.length === 0 && searchQuery) {
+            container.innerHTML = '<div style="padding:20px; color:#888; text-align:center;">Ничего не найдено</div>';
+    } 
+    // Обычная отрисовка
+    else {
+        renderRecursive(sortedData, container, 0);
+    }
+}
+
+window.renderFileSystem = render;
 
     window.renderFileSystem = render; //Делаем функцию глобальной
 
@@ -225,65 +227,110 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
 
     // === 5. СОЗДАНИЕ (И ВЫЗОВ PYTHON) ===
+    // === НОВАЯ КНОПКА: СОЗДАТЬ ПРОЕКТ (в корне) ===
+    const btnCreateProject = document.getElementById('btn-create-project');
+    if (btnCreateProject) {
+        btnCreateProject.onclick = async () => {
+            // Если включены избранные — ничего не делаем
+            if (bookmarksFilter) return;
+
+            const newProject = {
+                id: Date.now().toString(),
+                type: 'folder',
+                name: 'Новый проект',
+                children: [],
+                isOpen: true,
+                isTemp: true
+            };
+            fileSystem.push(newProject);
+            render();
+            
+            const el = document.querySelector(`[data-id="${newProject.id}"]`);
+            if (el) startEditing(el, newProject);
+        };
+    }
 
     // Кнопка: Создать папку
-    btnCreateFolder.onclick = () => {
-        // Создаем временный объект
-        const newFolder = { 
-            id: Date.now().toString(), 
-            type: 'folder', 
-            name: 'Новая папка', 
-            children: [], 
-            isOpen: true,
-            isTemp: true // Флаг, что это только что созданный, еще не сохраненный в БД
-        };
-        fileSystem.push(newFolder);
-        render();
+    btnCreateFolder.onclick = async () => {
+
+        if (bookmarksFilter) return;
+
+        if (!activeFolderId) {
+            alert('Выберите Проект, в котором создать папку.');
+            return;
+        }
+        const activeItem = findItemById(fileSystem, activeFolderId);
+        if (!activeItem) return;
+
+        // Определяем родителя: если выбран файл, берем его папку
+        let parentFolder = activeItem.type === 'folder' ? activeItem : getParentFolder(fileSystem, activeItem.id);
         
-        // Сразу включаем редактирование
+        // ПРОВЕРКА: Папку можно создать только если родитель - это Проект (лежит в корне)
+        // Проверяем, лежит ли parentFolder напрямую в fileSystem
+        const isProject = fileSystem.some(item => item.id === parentFolder.id);
+
+        if (!isProject) {
+            alert('Нельзя создавать папки внутри других папок. Структура: Проект -> Папки -> Файлы.');
+            return;
+        }
+
+        const newFolder = {
+            id: Date.now().toString(),
+            type: 'folder',
+            name: 'Новая папка',
+            children: [],
+            isOpen: true,
+            isTemp: true
+        };
+        parentFolder.children.push(newFolder);
+        parentFolder.isOpen = true;
+        render();
+
         const el = document.querySelector(`[data-id="${newFolder.id}"]`);
         if (el) startEditing(el, newFolder);
     };
 
-    // Кнопка: Создать файл
-    btnCreateFile.onclick = () => {
-        const newFile = { 
-            id: Date.now().toString(), 
-            type: 'file', 
-            name: 'Новый файл',
-            isTemp: true 
-        };
+    // === СОЗДАТЬ ФАЙЛ (В Проекте или Папке) ===
+    btnCreateFile.onclick = async () => {
 
-        // Куда класть?
-        if (activeFolderId) {
-            const parent = findItemById(fileSystem, activeFolderId);
-            if (parent && parent.type === 'folder') {
-                parent.children.push(newFile);
-                parent.isOpen = true;
-            } else {
-                // Если активен файл, кладем в его родительскую папку
-                const parentFolder = getParentFolder(fileSystem, activeFolderId);
-                if (parentFolder) {
-                    parentFolder.children.push(newFile);
-                    parentFolder.isOpen = true;
-                } else {
-                    fileSystem.push(newFile); // В корень
-                }
-            }
-        } else {
-            fileSystem.push(newFile); // В корень
+        if (bookmarksFilter) return;
+
+        // 1. ЗАПРЕТ НА СОЗДАНИЕ В КОРНЕ (если ничего не выбрано)
+        if (!activeFolderId) {
+            alert('Файлы можно создавать только внутри Проекта или Папки. Выберите их.');
+            return;
         }
 
+        const activeItem = findItemById(fileSystem, activeFolderId);
+        if (!activeItem) return;
+
+        // Определяем родителя. Если выбран файл, берем его папку. Если папка/проект - берем их.
+        let parentFolder = activeItem.type === 'folder' ? activeItem : getParentFolder(fileSystem, activeItem.id);
+
+        // Мы удалили проверку "isProject", теперь создавать можно везде, кроме корня.
+        
+        const newFile = {
+            id: Date.now().toString(),
+            type: 'file',
+            name: 'Новый файл',
+            isTemp: true
+        };
+        
+        // Добавляем файл в выбранную папку/проект
+        parentFolder.children.push(newFile);
+        parentFolder.isOpen = true; // Раскрываем папку
         render();
+
         const el = document.querySelector(`[data-id="${newFile.id}"]`);
         if (el) startEditing(el, newFile);
     };
 
+
     // === 6. РЕДАКТИРОВАНИЕ И СОХРАНЕНИЕ В PYTHON ===
-    function startEditing(element, itemObj) {
+        function startEditing(element, itemObj) {
         const span = element.querySelector('.fs-name');
         if (!span) return;
-        
+
         const oldName = itemObj.name;
         const input = document.createElement('input');
         input.type = 'text';
@@ -302,8 +349,8 @@ document.addEventListener('DOMContentLoaded', async () => {
             isSaving = true;
 
             const newName = input.value.trim();
-            
-            // Если имя пустое
+
+            // Если имя пустое - отмена
             if (!newName) {
                 if (itemObj.isTemp) removeItemFromTree(fileSystem, itemObj.id);
                 render();
@@ -320,52 +367,53 @@ document.addEventListener('DOMContentLoaded', async () => {
             if (window.pywebview && window.pywebview.api) {
                 try {
                     let res;
-                    
+
                     if (itemObj.isTemp) {
                         // === СОЗДАНИЕ ===
                         if (itemObj.type === 'folder') {
-                            res = await window.pywebview.api.create_folder(newName);
-                        } else {
-                            // Для создания нам нужно имя папки-родителя.
-                            // Но т.к. мы теперь используем глобальный монитор, 
-                            // нам важно просто создать файл, а монитор сам обновит дерево.
-                            // Используем старую логику поиска родителя для создания
+                            // Создание ПАПКИ
                             const parent = getParentFolder(fileSystem, itemObj.id);
-                            // Если create_file в Python ожидает имя папки, а у нас вложенность...
-                            // Лучше, если Python create_file будет умным. 
-                            // Но пока используем имя родителя как есть.
-                            const folderName = parent ? parent.name : ''; 
-                            res = await window.pywebview.api.create_file(folderName, newName);
+                            const parentId = parent ? parent.id : null;
+                            res = await window.pywebview.api.create_folder(newName, parentId);
+                        } else {
+                            // === СОЗДАНИЕ ФАЙЛА  ===
+                            const parent = getParentFolder(fileSystem, itemObj.id);
+                            // Передаем ID родителя полный путь
+                            const parentId = parent ? parent.id : null;
+                            res = await window.pywebview.api.create_file(parentId, newName);
                         }
                     } else {
-                        // === ПЕРЕИМЕНОВАНИЕ (НОВОЕ) ===
-                        // Передаем ID (который является полным путем) и новое имя
+                        // === ПЕРЕИМЕНОВАНИЕ ===
                         res = await window.pywebview.api.rename_item(itemObj.id, newName);
                     }
 
                     if (res.status !== 'ok') {
-                        alert('Ошибка: ' + res.message);
-                        if (itemObj.isTemp) removeItemFromTree(fileSystem, itemObj.id);
+                        alert(res.message);
+                        if (itemObj.isTemp) {
+                            removeItemFromTree(fileSystem, itemObj.id);
+                        }
                     } else {
-                        // Успех!
-                        // Мы можем даже не обновлять itemObj.name вручную, 
-                        // так как Python Monitor заметит изменение файла на диске 
-                        // и сам перезагрузит всё дерево через секунду.
-                        // Но для мгновенного отклика можно обновить локально:
-                        itemObj.name = newName;
-                        delete itemObj.isTemp;
-                        
-                        //Если при переиминовыванием файл сейчас открыт, то сразу обновляем название и справа
-                        if (itemObj.id === activeFolderId) {
-                             const titleEl = document.getElementById('lecture-title');
+                        // УСПЕХ
+                        itemObj.name = res.name || newName;
 
-                             if (titleEl) titleEl.textContent = newName;
+                        // Обновляем ID (Python возвращает 'id' при создании и 'new_id' при переименовании)
+                        if (res.id) itemObj.id = res.id;
+                        if (res.new_id) itemObj.id = res.new_id;
+
+                        delete itemObj.isTemp;
+
+                        // Если это текущая активная папка, обновляем заголовок
+                        if (itemObj.id === activeFolderId) {
+                            const titleEl = document.getElementById('lecture-title');
+                            if (titleEl) titleEl.textContent = itemObj.name;
                         }
                     }
+                    render();
+                    return;
 
                 } catch (e) {
                     console.error(e);
-                    alert('Ошибка связи с Backend');
+                    alert('Ошибка связи с Backend: ' + e);
                     if (itemObj.isTemp) removeItemFromTree(fileSystem, itemObj.id);
                 }
             } else {
@@ -378,14 +426,15 @@ document.addEventListener('DOMContentLoaded', async () => {
         };
 
         // Сохраняем по Enter или клику вне поля
-        input.addEventListener('keydown', (e) => { 
+        input.addEventListener('keydown', (e) => {
             if (e.key === 'Enter') {
-                input.blur(); // вызовет save через событие blur
+                input.blur(); 
             }
         });
         input.addEventListener('blur', save);
         input.onclick = (e) => e.stopPropagation();
     }
+
 
     // Позволяет другим скриптам (transcription.js) запустить переименование файла по ID
     window.editFileFromOutside = function(fileId) {
@@ -422,9 +471,6 @@ document.addEventListener('DOMContentLoaded', async () => {
     // === 7. УДАЛЕНИЕ (ЧЕРЕЗ PYTHON) ===
     document.getElementById('ctx-delete').onclick = async () => {
         if (!contextMenuTargetItem) return;
-        
-        const ok = confirm(`Удалить "${contextMenuTargetItem.name}"?`);
-        if (!ok) return;
 
         const parent = getParentFolder(fileSystem, contextMenuTargetItem.id);
         const folderName = parent ? parent.name : '';

@@ -149,6 +149,9 @@ function initBookmarkLogic(btn) {
             try {
                 const res = await window.pywebview.api.toggle_bookmark(activeElement.dataset.id);
                 if (res.status === 'ok') updateBookmarkIcon(btn, activeElement.dataset.id);
+                if (window.renderFileSystem) {
+                    window.renderFileSystem();
+                        }
             } catch(e){}
         }
     });
