@@ -37,23 +37,42 @@
             </button>
 
             <div class="ft-divider"></div>
-
-            <!-- Меню форматирования -->
-            <button class="ft-btn" id="btn-ft-format" title="Форматирование текста">
-                <i class="fa-solid fa-pen-nib"></i> 
-                <!-- Или fa-font -->
+            
+            <!-- Кнопка меню "Абзац" (Заголовки, списки) -->
+            <button class="ft-btn" id="btn-ft-paragraph" title="Абзац">
+                <i class="fa-solid fa-paragraph"></i> 
             </button>
 
-            <!-- Быстрые действия: Жирный -->
-            <button class="ft-btn" data-cmd="bold" title="Жирный">
+            <!-- Кнопка меню "Вставка" (Код, формулы) -->
+            <button class="ft-btn" id="btn-ft-insert" title="Вставка">
+                <i class="fa-solid fa-plus"></i> 
+            </button>
+
+            <!-- Жирный -->
+            <button class="ft-btn" data-md-start="**" data-md-end="**" title="Жирный">
                 <i class="fa-solid fa-bold"></i>
             </button>
             
-             <!-- Цвет текста (упрощенно - маркер) -->
-            <button class="ft-btn" data-cmd="backColor" data-val="yellow" title="Выделить желтым">
+            <!-- Курсив -->
+            <button class="ft-btn" data-md-start="_" data-md-end="_" title="Курсив">
+                <i class="fa-solid fa-italic"></i>
+            </button>
+
+            <!-- Подчеркнутый (В MD нет стандарта, используем тег u) -->
+            <button class="ft-btn" data-md-start="<u>" data-md-end="</u>" title="Подчеркнутый">
+                <i class="fa-solid fa-underline"></i>
+            </button>
+
+            <!-- Выделение (==текст==) -->
+            <button class="ft-btn" data-md-start="==" data-md-end="==" title="Выделить (Marker)">
                 <i class="fa-solid fa-highlighter"></i>
             </button>
 
+            <!-- Ссылка (Специальная кнопка) -->
+            <button class="ft-btn" data-type="link" title="Ссылка">
+                <i class="fa-solid fa-link"></i>
+            </button>
+            
             <div class="ft-divider"></div>
 
             <!-- Копипаст -->
@@ -111,25 +130,71 @@
 
         </div>
 
-        <!-- 3. Подменю Форматирования (Выпадает вниз) -->
-        <div id="ft-submenu-format" class="ft-submenu">
-            <div class="ft-item" data-cmd="formatBlock" data-val="H1">
-                <i class="fa-solid fa-heading"></i> Заголовок 1
+        <!-- === МЕНЮ 1: АБЗАЦ (Списки, Заголовки, Цитаты) === -->
+        <div id="ft-submenu-paragraph" class="ft-submenu" style="max-height: 400px; overflow-y: auto;">
+            <div class="ft-group-label" style="font-weight:650; font-size:0.95em;">• Заголовки</div>
+            
+            <div class="ft-item" data-type="h1">
+                <span style="font-weight:800; font-size:1.1em; width:20px; text-align:center;">H<span style="font-size:0.7em;">1</span></span> <span style="padding-left: 5px; margin-top: 4px;">Заголовок 1</span>
             </div>
-            <div class="ft-item" data-cmd="formatBlock" data-val="H2">
-                <i class="fa-solid fa-heading" style="font-size: 0.9em;"></i> Заголовок 2
+            <div class="ft-item" data-type="h2">
+                <span style="font-weight:750; font-size:1.05em; width:20px; text-align:center;">H<span style="font-size:0.7em;">2</span></span> <span style="padding-left: 5px; margin-top: 4px;">Заголовок 2</span>
             </div>
-            <div class="ft-item" data-cmd="insertUnorderedList">
-                <i class="fa-solid fa-list-ul"></i> Маркированный список
+            <div class="ft-item" data-type="h3">
+                <span style="font-weight:700; font-size:1.0em; width:20px; text-align:center;">H<span style="font-size:0.7em;">3</span></span> <span style="padding-left: 5px; margin-top: 4px;">Заголовок 3</span>
             </div>
-            <div class="ft-item" data-cmd="italic">
-                <i class="fa-solid fa-italic"></i> Курсив
+            <div class="ft-item" data-type="h4">
+                <span style="font-weight:650; font-size:0.95em; width:20px; text-align:center;">H<span style="font-size:0.7em;">4</span></span> <span style="padding-left: 5px; margin-top: 4px;">Заголовок 4</span>
             </div>
-            <div class="ft-item" data-cmd="underline">
-                <i class="fa-solid fa-underline"></i> Подчеркнутый
+            <div class="ft-item" data-type="h5">
+                <span style="font-weight:600; font-size:0.9em; width:20px; text-align:center;">H<span style="font-size:0.7em;">5</span></span> <span style="padding-left: 5px; margin-top: 4px;">Заголовок 5</span>
             </div>
-            <div class="ft-item" data-cmd="removeFormat">
-                <i class="fa-solid fa-eraser"></i> Очистить стиль
+            <div class="ft-item" data-type="h6">
+                <span style="font-weight:550; font-size:0.85em; width:20px; text-align:center;">H<span style="font-size:0.7em;">6</span></span> <span style="padding-left: 5px; margin-top: 4px;">Заголовок 6</span>
+            </div>
+
+            <div class="ft-item" data-md-start="> " data-md-end="">
+                <i class="fa-solid fa-quote-right"></i> Цитата
+            </div>
+        </div>
+
+        <!-- === МЕНЮ 2: ВСТАВКА (Код, Математика, Стиль) === -->
+        <div id="ft-submenu-insert" class="ft-submenu">
+            <div class="ft-group-label" style="font-weight:650; font-size:0.95em;">• Списки</div>
+            
+            <div class="ft-item" data-type="ul">
+                <i class="fa-solid fa-list-ul"></i> Список
+            </div>
+            <div class="ft-item" data-type="ol">
+                <i class="fa-solid fa-list-ol"></i> Нумерованный список
+            </div>
+            <div class="ft-item" data-type="task-list">
+                <i class="fa-regular fa-square-check"></i> Список задач
+            </div>
+
+            <div class="ft-divider-hor"></div>
+            <div class="ft-group-label" style="font-weight:650; font-size:0.95em;">• Математика</div>
+            <div class="ft-item" data-md-start="$" data-md-end="$">
+                <i class="fa-solid fa-square-root-variable"></i> Мат. выражение
+            </div>
+            <div class="ft-item" data-type="math-block">
+                <i class="fa-solid fa-shapes"></i> Блочное мат. выражение
+            </div>
+
+            <div class="ft-divider-hor"></div>
+
+            <div class="ft-group-label" style="font-weight:650; font-size:0.95em;">• Код</div>
+            <div class="ft-item" data-md-start="`" data-md-end="`">
+                <i class="fa-solid fa-code"></i> Код
+            </div>
+            <div class="ft-item" data-type="code-block">
+                <i class="fa-solid fa-file-code"></i> Блок кода
+            </div>
+
+            <div class="ft-divider-hor"></div>
+
+            <div class="ft-item" data-md-start="~~" data-md-end="~~">
+                <i class="fa-solid fa-strikethrough"></i> Зачёркнутый
             </div>
         </div>
 

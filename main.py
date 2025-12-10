@@ -79,4 +79,4 @@ if __name__ == '__main__':
     api.window = window
     window.events.loaded += lambda: on_loading_complete(window, api)
     
-    webview.start(debug=False)
+    webview.start(debug=True)

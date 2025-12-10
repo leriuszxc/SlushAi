@@ -381,8 +381,9 @@ class Api:
             return {"status": "error", "message": str(e)}
         
     def process_audio(self):
-        print("Backend: Start Audio Processing...")
-        
+        """
+        Транскрибация аудиофайла
+        """
         audio_file = os.path.join(PROJECTS_DIR, "audio2.mp3")
         json_filename = "audio2.json"
         output_json_file = os.path.join(PROJECTS_DIR, json_filename)
@@ -390,10 +391,10 @@ class Api:
         if not os.path.exists(audio_file):
             return {"status": "error", "message": f"Файл не найден: {audio_file}"}
 
-        model = None # Инициализируем переменную для модели
+        model = None
 
         try:
-            # 1. Получаем длительность аудио для расчета прогресса
+            # Получаем длительность аудио для расчета прогресса
             audio_duration = 0
             try:
                 # Используем ffprobe (убедитесь что он в PATH или укажите полный путь)
@@ -415,14 +416,12 @@ class Api:
             except Exception as e:
                 print(f"Не удалось получить длительность аудио: {e}")
 
-            # 2. Загрузка модели (ТОЛЬКО СЕЙЧАС)
+            # Загрузка модели
             if self.window:
                 self.window.evaluate_js("updateTranscriptionProgress(0, 'Загрузка модели AI в память...')")
             
             print("Загрузка модели Whisper в память...")
-            # Если есть GPU, можно указать device="cuda", иначе "cpu"
             model = WhisperModel("large-v3-turbo", device="cuda", compute_type="int8")
-            
             print("Начало транскрибации...")
             start_time = time.time()
             
@@ -438,7 +437,7 @@ class Api:
             transcription_results = []
             formatted_text = ""
 
-            # 3. Перебор сегментов и обновление прогресса
+            # Перебор сегментов и обновление прогресса
             for segment in segments_generator:
                 segment_data = {
                     "start": round(segment.start, 2),
@@ -470,7 +469,7 @@ class Api:
 
             elapsed = time.time() - start_time
             
-            # Сохранение JSON (стандартная логика)
+            # Сохранение JSON
             stats = { "processing_time": round(elapsed, 2), "audio_duration": round(audio_duration, 2) }
             final_json_data = {
                 "meta": { "file_name": audio_file, "model": "large-v3-turbo", "stats": stats },
@@ -486,8 +485,7 @@ class Api:
             return {"status": "error", "message": str(e)}
 
         finally:
-            # 4. ОЧИСТКА ПАМЯТИ (Выполняется всегда, даже при ошибке)
-            print("Очистка памяти...")
+            # ОЧИСТКА ПАМЯТИ (Выполняется всегда, даже при ошибке)
             if model:
                 del model
             
@@ -498,7 +496,6 @@ class Api:
             try:
                 if torch.cuda.is_available():
                     torch.cuda.empty_cache()
-                    print("CUDA cache cleared.")
             except Exception:
                 pass
             
@@ -550,7 +547,6 @@ class Api:
         4. Сохраняет историю
         5. Возвращает ответ
         """
-        print(f"AI Request: {user_query}")
         
         history_file = os.path.join(BD_HISTORY_DIR, 'history.json')
         
@@ -585,7 +581,7 @@ class Api:
             "messages": messages,
             "temperature": 0.2,
             "top_p": 0.9,
-            "return_citations": True # Можно включить true, если нужны ссылки
+            "return_citations": True
         }
         headers = {
             "Authorization": f"Bearer {PERPLEXITY_API_KEY}",
