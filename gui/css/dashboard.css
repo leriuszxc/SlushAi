@@ -511,7 +511,7 @@ body, html {
     background-color: #fff;
     position: relative;
     scroll-behavior: smooth; 
-    padding-bottom: 50vh; 
+    padding-bottom: 80vh;
     box-sizing: border-box;
     display: flex;
     flex-direction: column;
@@ -525,12 +525,18 @@ body, html {
 .content-area .lecture-content {
     width: 100%;        
     max-width: 800px;      
-    text-align: center; 
+    text-align: center;
+}
+
+#lecture-text {
+    white-space: pre-wrap;
 }
 
 .content-area .lecture-content {
     text-align: left;
     font-size: 18px;
+     
+    padding-bottom: 80vh;
 }
 
 .content-area::-webkit-scrollbar {

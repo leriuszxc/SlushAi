@@ -12,6 +12,22 @@
     animation: fadeIn 0.2s ease-out;
 }
 
+/* Класс, который JS добавит, если снизу мало места */
+.ft-submenu.open-up {
+    top: auto;        /* Отменяем top: 110% */
+    bottom: 110%;     /* Прижимаем снизу (меню будет над тулбаром) */
+    
+    /* Анимация появления снизу-вверх */
+    transform-origin: bottom center;
+}
+
+/* Аналогично для окна AI, если вдруг понадобится */
+.ft-ai-input-container.open-up {
+    top: auto;
+    bottom: 110%;
+    transform-origin: bottom center;
+}
+
 .floating-toolbar.visible {
     display: flex;
     gap: 8px;
@@ -82,6 +98,7 @@
     font-size: 0.85rem;
     color: #333;
     transition: background 0.2s;
+    min-height: 10px;
 }
 
 .ft-item:hover {
