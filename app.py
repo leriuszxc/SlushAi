@@ -31,12 +31,9 @@ logger.addFilter(AccessibilityErrorFilter())
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 DATA_DIR = os.path.join(BASE_DIR, 'docs')
 CONFIG_PATH = os.path.join('config', 'config.json')
-PROJECTS_DIR = os.path.join(BASE_DIR, 'projects')
 
 BD_HISTORY_DIR = os.path.join(BASE_DIR, 'BD', 'historyAI')
 
-if not os.path.exists(PROJECTS_DIR):
-    os.makedirs(PROJECTS_DIR)
 if not os.path.exists(DATA_DIR):
     os.makedirs(DATA_DIR)
 if not os.path.exists(BD_HISTORY_DIR):
@@ -463,15 +460,15 @@ class Api:
 
         except Exception as e:
             return {"status": "error", "message": str(e)}
-        
+
     def process_audio(self):
         """
         Транскрибация аудиофайла
         """
-        audio_file = os.path.join(PROJECTS_DIR, "audio2.mp3")
+        audio_file = os.path.join(DATA_DIR, "audio2.mp3")
         json_filename = "audio2.json"
-        output_json_file = os.path.join(PROJECTS_DIR, json_filename)
-        
+        output_json_file = os.path.join(DATA_DIR, json_filename)
+
         if not os.path.exists(audio_file):
             return {"status": "error", "message": f"Файл не найден: {audio_file}"}
 
@@ -776,7 +773,7 @@ class Api:
             from datetime import datetime
             timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
             project_name = f"Проект_{timestamp}"
-            project_dir = os.path.join(PROJECTS_DIR, project_name)
+            project_dir = os.path.join(DATA_DIR, project_name)
             
             os.makedirs(project_dir)
             print(f"✅ Создан новый проект: {project_name}")
@@ -795,7 +792,7 @@ class Api:
         Сохраняет порядок файлов в order.json.
         """
         try:
-            project_dir = os.path.join(PROJECTS_DIR, project_name)
+            project_dir = os.path.join(DATA_DIR, project_name)
             
             if not os.path.exists(project_dir):
                 return {"status": "error", "message": "Проект не найден"}
@@ -838,14 +835,14 @@ class Api:
             if is_first_upload and uploaded_files:
                 first_file = uploaded_files[0]
                 new_project_name = os.path.splitext(first_file)[0]  # Убираем расширение
-                new_project_dir = os.path.join(PROJECTS_DIR, new_project_name)
+                new_project_dir = os.path.join(DATA_DIR, new_project_name)
                 
                 # Если папка с таким именем уже существует, добавляем (1), (2)...
                 counter = 1
                 original_name = new_project_name
                 while os.path.exists(new_project_dir):
                     new_project_name = f"{original_name} ({counter})"
-                    new_project_dir = os.path.join(PROJECTS_DIR, new_project_name)
+                    new_project_dir = os.path.join(DATA_DIR, new_project_name)
                     counter += 1
                 
                 # Переименовываем папку
@@ -906,7 +903,7 @@ class Api:
 
     def delete_audio_file(self, project_name, filename):
         try:
-            project_dir = os.path.join(PROJECTS_DIR, project_name)
+            project_dir = os.path.join(DATA_DIR, project_name)
             audio_path = os.path.join(project_dir, filename)
             
             if os.path.exists(audio_path):
@@ -949,7 +946,7 @@ class Api:
         Получает порядок файлов из order.json или создаёт его.
         """
         try:
-            project_dir = os.path.join(PROJECTS_DIR, project_name)
+            project_dir = os.path.join(DATA_DIR, project_name)
             order_file = os.path.join(project_dir, 'order.json')
             
             # Получаем все аудиофайлы
@@ -980,7 +977,7 @@ class Api:
         Сохраняет порядок файлов в order.json.
         """
         try:
-            project_dir = os.path.join(PROJECTS_DIR, project_name)
+            project_dir = os.path.join(DATA_DIR, project_name)
             order_file = os.path.join(project_dir, 'order.json')
             
             with open(order_file, 'w', encoding='utf-8') as f:
@@ -1038,7 +1035,7 @@ class Api:
         Возвращает аудиофайл в формате base64 для плеера.
         """
         try:
-            project_dir = os.path.join(PROJECTS_DIR, project_name)
+            project_dir = os.path.join(DATA_DIR, project_name)
             audio_path = os.path.join(project_dir, filename)
             
             if os.path.exists(audio_path):
@@ -1058,7 +1055,7 @@ class Api:
     def delete_project(self, project_name):
         """Удаляет проект полностью"""
         try:
-            project_dir = os.path.join(PROJECTS_DIR, project_name)
+            project_dir = os.path.join(DATA_DIR, project_name)
             
             if os.path.exists(project_dir):
                 shutil.rmtree(project_dir)
