@@ -1,8 +1,11 @@
+// === АУДИОПЛЕЕР (ГЛОБАЛЬНЫЙ) ===
+
 class AudioPlayer {
     constructor() {
         this.modal = null;
         this.audio = null;
         this.currentFile = null;
+        this.currentProjectName = null;  // ← ДОБАВЛЕНО
         this.playlist = [];
         this.currentIndex = 0;
         this.isPlaying = false;
@@ -10,8 +13,10 @@ class AudioPlayer {
     }
 
     init() {
+        // Находим элементы
         this.modal = document.getElementById('audio-player-modal');
         this.titleEl = document.getElementById('audio-player-title');
+        this.dateEl = document.getElementById('audio-player-date');
         this.currentTimeEl = document.getElementById('audio-current-time');
         this.totalTimeEl = document.getElementById('audio-total-time');
         this.progressBar = document.getElementById('audio-progress-bar');
@@ -21,8 +26,10 @@ class AudioPlayer {
         this.rewindBtn = document.getElementById('audio-rewind-btn');
         this.forwardBtn = document.getElementById('audio-forward-btn');
 
-        // HTML5 Audio
+        // Создаём HTML5 Audio элемент
         this.audio = new Audio();
+
+        // Привязываем обработчики
         this.bindEvents();
     }
 
@@ -46,10 +53,11 @@ class AudioPlayer {
             }
         });
 
-        // Конец трека
+        // Окончание воспроизведения
         this.audio.addEventListener('ended', () => {
             this.isPlaying = false;
             this.updatePlayPauseIcon();
+            // Автоматически переключаем на следующий трек
             this.playNext();
         });
 
@@ -61,10 +69,12 @@ class AudioPlayer {
 
         // Кнопка Play/Pause
         if (this.playPauseBtn) {
-            this.playPauseBtn.addEventListener('click', () => this.togglePlayPause());
+            this.playPauseBtn.addEventListener('click', () => {
+                this.togglePlayPause();
+            });
         }
 
-        // Прогресс-бар (перемотка)
+        // Перемотка по прогресс-бару
         if (this.progressBar) {
             this.progressBar.addEventListener('input', (e) => {
                 if (this.audio.duration && !isNaN(this.audio.duration) && isFinite(this.audio.duration)) {
@@ -74,7 +84,7 @@ class AudioPlayer {
             });
         }
 
-        // Кнопка -10 сек
+        // Кнопка перемотки назад (-10 сек)
         if (this.rewindBtn) {
             this.rewindBtn.addEventListener('click', () => {
                 if (this.audio.duration && !isNaN(this.audio.duration) && isFinite(this.audio.duration)) {
@@ -83,61 +93,86 @@ class AudioPlayer {
             });
         }
 
-        // Кнопка +10 сек
+        // Кнопка перемотки вперёд (+10 сек)
         if (this.forwardBtn) {
             this.forwardBtn.addEventListener('click', () => {
                 if (this.audio.duration && !isNaN(this.audio.duration) && isFinite(this.audio.duration)) {
-                    this.audio.currentTime = Math.min(this.audio.duration, this.audio.currentTime + 10);
+                    this.audio.currentTime = Math.min(
+                        this.audio.duration,
+                        this.audio.currentTime + 10
+                    );
                 }
             });
         }
 
-        // Предыдущий трек
+        // Кнопка предыдущего трека
         if (this.prevBtn) {
-            this.prevBtn.addEventListener('click', () => this.playPrev());
+            this.prevBtn.addEventListener('click', () => {
+                this.playPrev();
+            });
         }
 
-        // Следующий трек
+        // Кнопка следующего трека
         if (this.nextBtn) {
-            this.nextBtn.addEventListener('click', () => this.playNext());
+            this.nextBtn.addEventListener('click', () => {
+                this.playNext();
+            });
         }
 
         // Закрытие по клику вне плеера
         document.addEventListener('click', (e) => {
             if (this.modal && this.modal.classList.contains('active')) {
-                if (!this.modal.contains(e.target) && !e.target.closest('.audio-file-play-btn')) {
+                if (!this.modal.contains(e.target) &&
+                    !e.target.closest('.audio-file-play-btn')) {
                     this.close();
                 }
             }
         });
     }
 
-    open(filename, playlist = [], index = 0) {
+    // Открыть плеер с конкретным файлом
+    open(filename, playlist = [], index = 0, projectName = null) {  // ← ДОБАВЛЕН projectName
         this.currentFile = filename;
         this.playlist = playlist;
         this.currentIndex = index;
+        this.currentProjectName = projectName;  // ← ДОБАВЛЕНО
 
         this.updateTrackInfo();
         this.loadCurrentTrack();
 
+        // Показываем модалку
         if (this.modal) {
             this.modal.classList.add('active');
         }
 
+        // Обновляем состояние кнопок prev/next
         this.updateNavigationButtons();
     }
 
     updateTrackInfo() {
+        // Устанавливаем название
         if (this.titleEl) {
-            // Убираем расширение из названия
             this.titleEl.textContent = this.currentFile.replace(/\.(mp3|wav|m4a|ogg|flac)$/i, '');
+        }
+
+        // Устанавливаем текущую дату и время
+        if (this.dateEl) {
+            const now = new Date();
+            this.dateEl.textContent = now.toLocaleString('ru-RU', {
+                day: '2-digit',
+                month: '2-digit',
+                year: 'numeric',
+                hour: '2-digit',
+                minute: '2-digit',
+                second: '2-digit'
+            });
         }
     }
 
     loadCurrentTrack() {
         if (window.pywebview && window.pywebview.api) {
-            // Получаем base64 данные вместо file:// пути
-            window.pywebview.api.get_audio_file_base64(this.currentFile).then(res => {
+            // ⚠️ ИСПРАВЛЕНО: передаём project_name и filename
+            window.pywebview.api.get_audio_file_base64(this.currentProjectName, this.currentFile).then(res => {
                 if (res.status === 'ok') {
                     console.log('Аудио загружено (base64)');
                     // Формат: data:audio/mpeg;base64,<данные>
@@ -159,10 +194,10 @@ class AudioPlayer {
 
     updateNavigationButtons() {
         if (this.prevBtn) {
-            this.prevBtn.disabled = this.currentIndex === 0;
+            this.prevBtn.disabled = (this.currentIndex === 0);
         }
         if (this.nextBtn) {
-            this.nextBtn.disabled = this.currentIndex === this.playlist.length - 1;
+            this.nextBtn.disabled = (this.currentIndex === this.playlist.length - 1);
         }
     }
 
@@ -186,6 +221,7 @@ class AudioPlayer {
         }
     }
 
+    // Закрыть плеер
     close() {
         this.pause();
         if (this.modal) {
@@ -193,6 +229,7 @@ class AudioPlayer {
         }
     }
 
+    // Play/Pause
     togglePlayPause() {
         if (this.isPlaying) {
             this.pause();
@@ -232,6 +269,7 @@ class AudioPlayer {
         }
     }
 
+    // Форматирование времени (секунды -> MM:SS)
     formatTime(seconds) {
         if (!seconds || isNaN(seconds) || !isFinite(seconds)) return '0:00';
         const mins = Math.floor(seconds / 60);
@@ -240,22 +278,23 @@ class AudioPlayer {
     }
 }
 
-// Глобальная инициализация
+// Глобальный экземпляр плеера
 let globalAudioPlayer = null;
 
+// Инициализация при загрузке страницы
 document.addEventListener('DOMContentLoaded', () => {
     globalAudioPlayer = new AudioPlayer();
 });
 
-// Функция для открытия плеера из audio_modal.js
-window.openAudioPlayer = function(filename, playlist = [filename], index = 0) {
+// Глобальная функция для открытия плеера (доступна из любого места)
+window.openAudioPlayer = function(filename, playlist = [filename], index = 0, projectName = null) {  // ← ДОБАВЛЕН projectName
     if (!globalAudioPlayer) {
         console.error('Audio player not initialized');
         return;
     }
-    globalAudioPlayer.open(filename, playlist, index);
+    globalAudioPlayer.open(filename, playlist, index, projectName);  // ← ПЕРЕДАЁМ projectName
 };
 
-// Экспорт для использования
+// Экспорт для использования в других модулях
 window.AudioPlayer = AudioPlayer;
 window.globalAudioPlayer = globalAudioPlayer;

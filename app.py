@@ -766,18 +766,44 @@ class Api:
             return {"status": "ok", "bookmarks": bookmarks}
         except Exception as e:
             return {"status": "error", "message": str(e)}
-        
-    def upload_audio_file(self):
+    
+    def create_new_project(self):
         """
-        Загружает аудиофайлы в проект.
-        Первый файл создаёт папку с его именем, остальные добавляются туда же.
+        Создаёт новый проект с уникальным именем.
+        Вызывается при нажатии кнопки 'СлушАй'.
         """
         try:
-            # Проверяем существующие проекты
-            existing_projects = []
-            if os.path.exists(PROJECTS_DIR):
-                existing_projects = [f for f in os.listdir(PROJECTS_DIR) 
-                                    if os.path.isdir(os.path.join(PROJECTS_DIR, f))]
+            from datetime import datetime
+            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+            project_name = f"Проект_{timestamp}"
+            project_dir = os.path.join(PROJECTS_DIR, project_name)
+            
+            os.makedirs(project_dir)
+            print(f"✅ Создан новый проект: {project_name}")
+            
+            return {"status": "ok", "project_name": project_name}
+        
+        except Exception as e:
+            print(f"❌ Ошибка создания проекта: {e}")
+            return {"status": "error", "message": str(e)}
+
+
+    def upload_audio_to_project(self, project_name):
+        """
+        Загружает аудиофайлы в СУЩЕСТВУЮЩИЙ проект.
+        После загрузки первого файла переименовывает проект в его имя.
+        Сохраняет порядок файлов в order.json.
+        """
+        try:
+            project_dir = os.path.join(PROJECTS_DIR, project_name)
+            
+            if not os.path.exists(project_dir):
+                return {"status": "error", "message": "Проект не найден"}
+            
+            # Проверяем, есть ли уже файлы в проекте
+            existing_files = [f for f in os.listdir(project_dir)
+                            if f.endswith(('.mp3', '.wav', '.m4a', '.ogg', '.flac'))]
+            is_first_upload = len(existing_files) == 0
             
             file_types = ('Audio Files (*.mp3;*.wav;*.m4a;*.ogg;*.flac)', 'All files (*.*)')
             result = self.window.create_file_dialog(
@@ -790,33 +816,10 @@ class Api:
                 return {"status": "cancelled"}
             
             uploaded_files = []
-            project_name = None
+            new_project_name = project_name  # По умолчанию оставляем старое имя
             
             for file_path in result:
                 filename = os.path.basename(file_path)
-                
-                # Определяем папку проекта
-                if not existing_projects:
-                    # Первая загрузка - создаём проект
-                    project_name = os.path.splitext(filename)[0]
-                    project_dir = os.path.join(PROJECTS_DIR, project_name)
-                    
-                    counter = 1
-                    original_name = project_name
-                    while os.path.exists(project_dir):
-                        project_name = f"{original_name} ({counter})"
-                        project_dir = os.path.join(PROJECTS_DIR, project_name)
-                        counter += 1
-                    
-                    os.makedirs(project_dir)
-                    existing_projects.append(project_name)
-                    print(f"Создан проект: {project_name}")
-                else:
-                    # Добавляем в первый существующий проект
-                    project_name = existing_projects[0]
-                    project_dir = os.path.join(PROJECTS_DIR, project_name)
-                
-                # Копируем файл
                 dest_path = os.path.join(project_dir, filename)
                 
                 # Уникальное имя, если файл уже существует
@@ -829,94 +832,110 @@ class Api:
                 
                 shutil.copy2(file_path, dest_path)
                 uploaded_files.append(os.path.basename(dest_path))
-                print(f"Файл скопирован: {dest_path}")
+                print(f"📁 Файл скопирован: {os.path.basename(dest_path)}")
+            
+            # ПЕРЕИМЕНОВАНИЕ ПРОЕКТА по имени первого файла
+            if is_first_upload and uploaded_files:
+                first_file = uploaded_files[0]
+                new_project_name = os.path.splitext(first_file)[0]  # Убираем расширение
+                new_project_dir = os.path.join(PROJECTS_DIR, new_project_name)
+                
+                # Если папка с таким именем уже существует, добавляем (1), (2)...
+                counter = 1
+                original_name = new_project_name
+                while os.path.exists(new_project_dir):
+                    new_project_name = f"{original_name} ({counter})"
+                    new_project_dir = os.path.join(PROJECTS_DIR, new_project_name)
+                    counter += 1
+                
+                # Переименовываем папку
+                os.rename(project_dir, new_project_dir)
+                print(f"📝 Проект переименован: '{project_name}' → '{new_project_name}'")
+                
+                # Обновляем project_dir после переименования
+                project_dir = new_project_dir
+            
+            # === РАБОТА С ПОРЯДКОМ ФАЙЛОВ ===
+            
+            # Получаем текущий порядок (или создаём новый)
+            order_res = self.get_project_order(new_project_name)
+            
+            if order_res["status"] == "ok":
+                current_order = order_res["order"]
+                
+                # Добавляем новые файлы в конец
+                for new_file in uploaded_files:
+                    if new_file not in current_order:
+                        current_order.append(new_file)
+                
+                # Сохраняем обновлённый порядок
+                self.save_project_order(new_project_name, current_order)
+                
+                # Возвращаем файлы в правильном порядке
+                final_files = current_order
+            else:
+                # Если не удалось получить порядок - возвращаем отсортированные
+                final_files = sorted(uploaded_files)
             
             return {
                 "status": "ok",
-                "project_name": project_name,
-                "files": uploaded_files
+                "files": final_files,  # Возвращаем в правильном порядке!
+                "project_name": new_project_name
             }
         
         except Exception as e:
-            print(f"Ошибка загрузки: {e}")
+            print(f"❌ Ошибка загрузки: {e}")
             return {"status": "error", "message": str(e)}
 
 
-    def get_uploaded_audio_files(self):
-        """Возвращает список аудиофайлов из проекта"""
+
+    def get_project_files(self, project_name):
+        """
+        Получает список аудиофайлов проекта В СОХРАНЁННОМ ПОРЯДКЕ.
+        """
         try:
-            if not os.path.exists(PROJECTS_DIR):
-                return {"status": "ok", "files": []}
+            res = self.get_project_order(project_name)
+            if res["status"] == "ok":
+                return {"status": "ok", "files": res["order"]}
             
-            # Получаем список проектов
-            projects = [f for f in os.listdir(PROJECTS_DIR) 
-                    if os.path.isdir(os.path.join(PROJECTS_DIR, f))]
-            
-            if not projects:
-                return {"status": "ok", "files": []}
-            
-            # Берём первый проект
-            project_name = sorted(projects)[0]
+            return res
+        
+        except Exception as e:
+            return {"status": "error", "message": str(e)}
+
+
+    def delete_audio_file(self, project_name, filename):
+        try:
             project_dir = os.path.join(PROJECTS_DIR, project_name)
+            audio_path = os.path.join(project_dir, filename)
             
-            # Получаем аудиофайлы
-            files = [f for f in os.listdir(project_dir)
-                    if f.endswith(('.mp3', '.wav', '.m4a', '.ogg', '.flac'))]
-            
-            return {"status": "ok", "files": sorted(files), "project_name": project_name}
-        
-        except Exception as e:
-            return {"status": "error", "message": str(e)}
-
-
-    def get_audio_file_path(self, filename):
-        """Возвращает file:// путь к аудиофайлу из проекта"""
-        try:
-            if not os.path.exists(PROJECTS_DIR):
-                return {"status": "error", "message": "Папка проектов не найдена"}
-            
-            # Ищем файл во всех проектах
-            for project in os.listdir(PROJECTS_DIR):
-                project_dir = os.path.join(PROJECTS_DIR, project)
-                if not os.path.isdir(project_dir):
-                    continue
+            if os.path.exists(audio_path):
+                os.remove(audio_path)
+                print(f"🗑️ Удалён файл: {filename} из {project_name}")
                 
-                audio_path = os.path.join(project_dir, filename)
-                if os.path.exists(audio_path):
-                    absolute_path = os.path.abspath(audio_path)
-                    file_url = f"file:///{absolute_path.replace(os.sep, '/')}"
-                    print(f"Audio URL: {file_url}")
-                    return {"status": "ok", "path": file_url}
-            
-            return {"status": "error", "message": "Файл не найден ни в одном проекте"}
-        
-        except Exception as e:
-            return {"status": "error", "message": str(e)}
-
-
-    def delete_audio_file(self, filename):
-        """Удаляет аудиофайл из проекта"""
-        try:
-            # Ищем файл во всех проектах
-            for project in os.listdir(PROJECTS_DIR):
-                project_dir = os.path.join(PROJECTS_DIR, project)
-                if not os.path.isdir(project_dir):
-                    continue
+                # Обновляем order.json
+                order_file = os.path.join(project_dir, 'order.json')
+                if os.path.exists(order_file):
+                    with open(order_file, 'r', encoding='utf-8') as f:
+                        order = json.load(f)
+                    
+                    # Убираем удалённый файл
+                    if filename in order:
+                        order.remove(filename)
+                        
+                        with open(order_file, 'w', encoding='utf-8') as f:
+                            json.dump(order, f, ensure_ascii=False, indent=2)
                 
-                audio_path = os.path.join(project_dir, filename)
-                if os.path.exists(audio_path):
-                    os.remove(audio_path)
-                    
-                    # Проверяем, остались ли файлы в проекте
-                    remaining = [f for f in os.listdir(project_dir)
-                                if f.endswith(('.mp3', '.wav', '.m4a', '.ogg', '.flac'))]
-                    
-                    # Если проект пустой - удаляем папку
-                    if not remaining:
-                        shutil.rmtree(project_dir)
-                        print(f"Проект '{project}' удалён (пустой)")
-                    
-                    return {"status": "ok"}
+                # Проверяем, остались ли файлы
+                remaining = [f for f in os.listdir(project_dir)
+                            if f.endswith(('.mp3', '.wav', '.m4a', '.ogg', '.flac'))]
+                
+                # Если пусто - удаляем проект
+                if not remaining:
+                    shutil.rmtree(project_dir)
+                    print(f"🗑️ Проект '{project_name}' удалён (пустой)")
+                
+                return {"status": "ok", "files_remaining": len(remaining)}
             
             return {"status": "error", "message": "Файл не найден"}
         
@@ -924,53 +943,114 @@ class Api:
             return {"status": "error", "message": str(e)}
 
 
-    def move_audio_file(self, index, direction):
-        """Перемещает файл вверх/вниз в списке (в рамках текущего проекта)"""
+
+    def get_project_order(self, project_name):
+        """
+        Получает порядок файлов из order.json или создаёт его.
+        """
         try:
-            # Получаем текущий проект
-            res = self.get_uploaded_audio_files()
-            if res["status"] != "ok" or not res.get("files"):
-                return {"status": "error", "message": "Нет файлов для перемещения"}
+            project_dir = os.path.join(PROJECTS_DIR, project_name)
+            order_file = os.path.join(project_dir, 'order.json')
             
-            files = res["files"]
-            project_name = res.get("project_name")
+            # Получаем все аудиофайлы
+            audio_files = sorted([f for f in os.listdir(project_dir)
+                                if f.endswith(('.mp3', '.wav', '.m4a', '.ogg', '.flac'))])
             
-            if not project_name:
-                return {"status": "error", "message": "Проект не найден"}
+            # Если order.json существует - загружаем
+            if os.path.exists(order_file):
+                with open(order_file, 'r', encoding='utf-8') as f:
+                    saved_order = json.load(f)
+                
+                # Убираем удалённые файлы и добавляем новые
+                order = [f for f in saved_order if f in audio_files]
+                new_files = [f for f in audio_files if f not in order]
+                order.extend(new_files)
+            else:
+                # Если нет - используем алфавитный порядок
+                order = audio_files
             
-            # Проверяем индекс
-            if index < 0 or index >= len(files):
-                return {"status": "error", "message": "Неверный индекс"}
+            return {"status": "ok", "order": order}
+        
+        except Exception as e:
+            return {"status": "error", "message": str(e)}
+
+
+    def save_project_order(self, project_name, order):
+        """
+        Сохраняет порядок файлов в order.json.
+        """
+        try:
+            project_dir = os.path.join(PROJECTS_DIR, project_name)
+            order_file = os.path.join(project_dir, 'order.json')
             
-            # Меняем порядок (просто возвращаем OK, т.к. сортировка по имени)
-            # Если нужна реальная сортировка - храни order.json
+            with open(order_file, 'w', encoding='utf-8') as f:
+                json.dump(order, f, ensure_ascii=False, indent=2)
+            
+            print(f"📝 Порядок сохранён для проекта '{project_name}'")
             return {"status": "ok"}
         
         except Exception as e:
             return {"status": "error", "message": str(e)}
+
+
+    def move_audio_file(self, project_name, index, direction):
+        """
+        Перемещает файл вверх или вниз в списке.
         
-    def get_audio_file_base64(self, filename):
-        """Возвращает аудиофайл в формате base64"""
+        Args:
+            project_name: Имя проекта
+            index: Индекс файла (0-based)
+            direction: "up" или "down"
+        """
         try:
-            # Ищем файл во всех проектах
-            for project in os.listdir(PROJECTS_DIR):
-                project_dir = os.path.join(PROJECTS_DIR, project)
-                if not os.path.isdir(project_dir):
-                    continue
-                
-                audio_path = os.path.join(project_dir, filename)
-                if os.path.exists(audio_path):
-                    # Читаем файл в бинарном режиме
-                    with open(audio_path, 'rb') as f:
-                        audio_data = f.read()
-                    
-                    # Кодируем в base64
-                    base64_data = base64.b64encode(audio_data).decode('utf-8')
-                    
-                    print(f"Аудио закодировано: {len(base64_data)} байт")
-                    return {"status": "ok", "data": base64_data}
+            # Получаем текущий порядок
+            res = self.get_project_order(project_name)
+            if res["status"] != "ok":
+                return res
             
-            return {"status": "error", "message": "Файл не найден ни в одном проекте"}
+            order = res["order"]
+            
+            # Проверка индекса
+            if index < 0 or index >= len(order):
+                return {"status": "error", "message": "Неверный индекс"}
+            
+            # Перемещение
+            if direction == "up" and index > 0:
+                # Меняем местами с предыдущим
+                order[index], order[index - 1] = order[index - 1], order[index]
+            elif direction == "down" and index < len(order) - 1:
+                # Меняем местами со следующим
+                order[index], order[index + 1] = order[index + 1], order[index]
+            else:
+                return {"status": "error", "message": "Невозможно переместить"}
+            
+            # Сохраняем новый порядок
+            self.save_project_order(project_name, order)
+            
+            return {"status": "ok", "order": order}
+        
+        except Exception as e:
+            return {"status": "error", "message": str(e)}
+
+        
+    def get_audio_file_base64(self, project_name, filename):
+        """
+        Возвращает аудиофайл в формате base64 для плеера.
+        """
+        try:
+            project_dir = os.path.join(PROJECTS_DIR, project_name)
+            audio_path = os.path.join(project_dir, filename)
+            
+            if os.path.exists(audio_path):
+                with open(audio_path, 'rb') as f:
+                    audio_data = f.read()
+                
+                base64_data = base64.b64encode(audio_data).decode('utf-8')
+                print(f"🎵 Аудио закодировано: {len(base64_data)} байт")
+                
+                return {"status": "ok", "data": base64_data}
+            
+            return {"status": "error", "message": "Файл не найден"}
         
         except Exception as e:
             return {"status": "error", "message": str(e)}
