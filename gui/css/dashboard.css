@@ -1440,3 +1440,112 @@ body.theme-dark .lecture-card {
 body.theme-dark .lecture-content.raw-mode {
     color: #e0e0e0;
 }
+
+/* === МОДАЛЬНОЕ ОКНО УДАЛЕНИЯ АУДИО === */
+.delete-confirm-modal {
+    display: none;
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    z-index: 10000;
+    align-items: center;
+    justify-content: center;
+}
+
+.delete-confirm-modal.active {
+    display: flex;
+}
+
+.delete-confirm-overlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.5);
+    backdrop-filter: blur(5px);
+}
+
+.delete-confirm-content {
+    position: relative;
+    background: linear-gradient(135deg, #e8e8e8 0%, #d0d0d0 100%);
+    border-radius: 40px;
+    padding: 50px 60px;
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+    max-width: 600px;
+    width: 90%;
+    animation: deleteModalSlideIn 0.3s ease-out;
+}
+
+@keyframes deleteModalSlideIn {
+    from {
+        transform: scale(0.8) translateY(-30px);
+        opacity: 0;
+    }
+    to {
+        transform: scale(1) translateY(0);
+        opacity: 1;
+    }
+}
+
+.delete-confirm-message {
+    font-size: 28px;
+    font-weight: 600;
+    color: #1a1a1a;
+    text-align: center;
+    margin-bottom: 40px;
+    line-height: 1.4;
+}
+
+.delete-confirm-buttons {
+    display: flex;
+    gap: 30px;
+    justify-content: center;
+}
+
+.delete-confirm-btn {
+    padding: 18px 80px;
+    font-size: 24px;
+    font-weight: 700;
+    border: none;
+    border-radius: 25px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    box-shadow: 0 8px 20px rgba(0, 0, 0, 0.15);
+    min-width: 180px;
+}
+
+.delete-confirm-no {
+    background: linear-gradient(135deg, #ff5252 0%, #c92a2a 100%);
+    color: white;
+}
+
+.delete-confirm-no:hover {
+    background: linear-gradient(135deg, #ff6b6b 0%, #e03131 100%);
+    transform: translateY(-2px);
+    box-shadow: 0 12px 25px rgba(201, 42, 42, 0.3);
+}
+
+.delete-confirm-no:active {
+    transform: translateY(0);
+    box-shadow: 0 5px 15px rgba(201, 42, 42, 0.3);
+}
+
+.delete-confirm-yes {
+    background: linear-gradient(135deg, #51cf66 0%, #37b24d 100%);
+    color: white;
+}
+
+.delete-confirm-yes:hover {
+    background: linear-gradient(135deg, #69db7c 0%, #40c057 100%);
+    transform: translateY(-2px);
+    box-shadow: 0 12px 25px rgba(55, 178, 77, 0.3);
+}
+
+.delete-confirm-yes:active {
+    transform: translateY(0);
+    box-shadow: 0 5px 15px rgba(55, 178, 77, 0.3);
+}
+/* === КОНЕЦ МОДАЛЬНОГО ОКНА УДАЛЕНИЯ АУДИО === */

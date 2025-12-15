@@ -492,6 +492,21 @@
     </div>
     <!-- === КОНЕЦ МОДАЛЬНОГО ОКНА АУДИОПЛЕЕРА === -->
 
+    <!-- Модальное окно подтверждения удаления аудио -->
+    <div id="delete-audio-confirm-modal" class="delete-confirm-modal">
+        <div class="delete-confirm-overlay"></div>
+        <div class="delete-confirm-content">
+            <div class="delete-confirm-message">
+                Вы уверены что хотите удалить это аудио?
+            </div>
+            <div class="delete-confirm-buttons">
+                <button class="delete-confirm-btn delete-confirm-no">Нет</button>
+                <button class="delete-confirm-btn delete-confirm-yes">Да</button>
+            </div>
+        </div>
+    </div>
+    <!-- Конец модального окна подтверждения удаления аудио -->
+
 
     <!-- Конфигурация MathJax -->
     <script>
@@ -523,8 +538,8 @@
     <script src="scripts/dashboard.js"></script>
     <script src="scripts/zoom.js"></script>
     <script src="scripts/editor_toolbar.js"></script>
-    <script src="scripts/transcription.js"></script>
     <script src="scripts/audio_modal.js"></script>
     <script src="scripts/audio_player.js"></script>
+    <script src="scripts/delete_confirm.js"></script>
 </body>
 </html>

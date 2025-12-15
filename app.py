@@ -6,6 +6,7 @@ import json
 import base64
 from env import PERPLEXITY_API_KEY
 import logging
+os.environ["HF_HUB_DISABLE_XET"] = "1"
 
 torch = None
 requests = None
@@ -31,6 +32,8 @@ logger.addFilter(AccessibilityErrorFilter())
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 DATA_DIR = os.path.join(BASE_DIR, 'docs')
 CONFIG_PATH = os.path.join('config', 'config.json')
+FFMPEG_PATH = os.path.join(BASE_DIR, 'ffmpeg', 'bin', 'ffmpeg.exe')
+FFPROBE_PATH = os.path.join(BASE_DIR, 'ffmpeg', 'bin', 'ffprobe.exe')
 
 BD_HISTORY_DIR = os.path.join(BASE_DIR, 'BD', 'historyAI')
 
@@ -461,55 +464,51 @@ class Api:
         except Exception as e:
             return {"status": "error", "message": str(e)}
 
-    def process_audio(self):
+    def process_audio(self, audio_file):
         """
-        Транскрибация аудиофайла
+        Транскрибирует указанный аудиофайл и сохраняет JSON рядом с ним.
+        audio_file — ПОЛНЫЙ путь к файлу.
         """
-        audio_file = os.path.join(DATA_DIR, "audio2.mp3")
-        json_filename = "audio2.json"
-        output_json_file = os.path.join(DATA_DIR, json_filename)
-
         if not os.path.exists(audio_file):
             return {"status": "error", "message": f"Файл не найден: {audio_file}"}
 
         model = None
-
         try:
-            # Получаем длительность аудио для расчета прогресса
+            # длительность через ffprobe
             audio_duration = 0
             try:
-                # Используем ffprobe (убедитесь что он в PATH или укажите полный путь)
                 cmd = [
-                    'ffprobe', 
-                    '-v', 'error', 
-                    '-show_entries', 'format=duration', 
-                    '-of', 'default=noprint_wrappers=1:nokey=1', 
-                    audio_file
+                    FFPROBE_PATH,
+                    '-v', 'error',
+                    '-show_entries', 'format=duration',
+                    '-of', 'default=noprint_wrappers=1:nokey=1',
+                    audio_file,
                 ]
-                # В Windows создание окна консоли можно скрыть флагом creationflags
+
                 startupinfo = None
                 if os.name == 'nt':
                     startupinfo = subprocess.STARTUPINFO()
                     startupinfo.dwFlags |= subprocess.STARTF_USESHOWWINDOW
-                
-                output = subprocess.check_output(cmd, startupinfo=startupinfo).decode().strip()
-                audio_duration = float(output)
-            except Exception as e:
-                print(f"Не удалось получить длительность аудио: {e}")
 
-            # Загрузка модели
+                out = subprocess.check_output(cmd, startupinfo=startupinfo).decode().strip()
+                audio_duration = float(out)
+            except Exception as e:
+                print("Не удалось получить длительность:", e)
+
             if self.window:
-                self.window.evaluate_js("updateTranscriptionProgress(0, 'Загрузка модели AI в память...')")
-            
-            print("Загрузка модели Whisper в память...")
-            model = WhisperModel("large-v3-turbo", device="cuda", compute_type="int8")
-            print("Начало транскрибации...")
+                self.window.evaluate_js(
+                    "updateTranscriptionProgress(0, 'Загрузка AI‑модели...')"
+                )
+
+            print("Загрузка Whisper...")
+            model = WhisperModel('large-v3-turbo', device='cuda', compute_type='int8')
+            print("Модель загружена")
+
             start_time = time.time()
-            
-            segments_generator, info = model.transcribe(
+            segments, info = model.transcribe(
                 audio_file,
-                language="ru",
-                task="transcribe",
+                language='ru',
+                task='transcribe',
                 beam_size=6,
                 vad_filter=True,
                 condition_on_previous_text=True,
@@ -518,105 +517,122 @@ class Api:
             transcription_results = []
             formatted_text = ""
 
-            # Перебор сегментов и обновление прогресса
-            for segment in segments_generator:
+            for seg in segments:
                 segment_data = {
-                    "start": round(segment.start, 2),
-                    "end": round(segment.end, 2),
-                    "text": segment.text.strip()
+                    "start": round(seg.start, 2),
+                    "end": round(seg.end, 2),
+                    "text": seg.text.strip(),
                 }
                 transcription_results.append(segment_data)
-                
-                # Форматирование текста
-                m = int(segment.start // 60)
-                s = int(segment.start % 60)
-                time_str = f"{m:02}:{s:02}"
-                formatted_text += f"({time_str}) {segment.text.strip()}\n"
-                
-                # ОБНОВЛЕНИЕ UI
+
+                m = int(seg.start // 60)
+                s = int(seg.start % 60)
+                t = f"{m:02}:{s:02}"
+                formatted_text += f"[{t}] {seg.text.strip()}\n"
+
                 if self.window and audio_duration > 0:
-                    percent = int((segment.end / audio_duration) * 100)
-                    if percent > 100: percent = 100
-                    
-                    # Форматируем текущее время аудио
-                    current_m = int(segment.end // 60)
-                    current_s = int(segment.end % 60)
-                    status_text = f"Обработано: {current_m:02}:{current_s:02}"
-                    
-                    # Отправляем в JS
-                    self.window.evaluate_js(f"updateTranscriptionProgress({percent}, '{status_text}')")
-                
-                print(f"[{time_str}] {segment.text.strip()}")
+                    percent = int(seg.end / audio_duration * 100)
+                    if percent > 100:
+                        percent = 100
+                    cm = int(seg.end // 60)
+                    cs = int(seg.end % 60)
+                    status = f"Транскрибация: {cm:02}:{cs:02}"
+                    self.window.evaluate_js(
+                        f"updateTranscriptionProgress({percent}, '{status}')"
+                    )
 
             elapsed = time.time() - start_time
-            
-            # Сохранение JSON
-            stats = { "processing_time": round(elapsed, 2), "audio_duration": round(audio_duration, 2) }
-            final_json_data = {
-                "meta": { "file_name": audio_file, "model": "large-v3-turbo", "stats": stats },
-                "segments": transcription_results
+
+            stats = {
+                "processing_time": round(elapsed, 2),
+                "audio_duration": round(audio_duration, 2),
             }
-            with open(output_json_file, "w", encoding="utf-8") as f:
-                json.dump(final_json_data, f, ensure_ascii=False, indent=4)
-            
+
+            base = os.path.splitext(os.path.basename(audio_file))[0]
+            proj_dir = os.path.dirname(audio_file)
+            json_path = os.path.join(proj_dir, f"{base}.json")
+
+            final_json = {
+                "meta": {"file_name": audio_file, "model": "large-v3-turbo", "stats": stats},
+                "segments": transcription_results,
+            }
+
+            with open(json_path, "w", encoding="utf-8") as f:
+                json.dump(final_json, f, ensure_ascii=False, indent=4)
+
             return {"status": "ok", "content": formatted_text}
 
         except Exception as e:
-            print(f"Ошибка Whisper: {e}")
+            print("Ошибка Whisper:", e)
             return {"status": "error", "message": str(e)}
-
         finally:
-            # ОЧИСТКА ПАМЯТИ (Выполняется всегда, даже при ошибке)
             if model:
                 del model
-            
-            # Принудительный запуск сборщика мусора Python
             gc.collect()
-            
-            # Очистка видеопамяти (если использовалась CUDA)
             try:
                 if torch.cuda.is_available():
                     torch.cuda.empty_cache()
             except Exception:
                 pass
-            
             print("Модель выгружена.")
 
-    def create_transcribed_file(self, filename, content):
-        """
-        Создает файл в КОРНЕ с заданным именем и контентом.
-        Если имя занято, добавляет (1), (2) и т.д.
-        """
+    def create_transcription(self, project_name):
+        try:
+            load_heavy_libs()
+
+            default_name = f"{project_name}_транскрибация"  # всегда определён заранее
+
+            merge_res = self.merge_project_audio(project_name)
+            if merge_res["status"] != "ok":
+                return merge_res
+
+            merged_file = merge_res["merged_file"]
+            tr_res = self.process_audio(merged_file)
+            if tr_res["status"] != "ok":
+                return tr_res
+
+            text = tr_res["content"]
+
+            project_dir = os.path.dirname(merged_file)  # папка проекта
+            save_res = self.create_transcribed_file(project_dir, default_name, text)
+            if save_res["status"] != "ok":
+                return save_res
+
+            return {"status": "ok", "merged_file": merged_file, "new_file": save_res["new_file"]}
+
+        except Exception as e:
+            return {"status": "error", "message": f"Ошибка транскрибации: {e}"}
+
+
+
+
+    def create_transcribed_file(self, folder_path, filename, content):
         try:
             if not filename.endswith('.txt'):
                 filename += '.txt'
-            
-            # Логика уникального имени
+
+            os.makedirs(folder_path, exist_ok=True)
+
             base_name, ext = os.path.splitext(filename)
             counter = 1
-            
             final_name = filename
-            final_path = os.path.join(DATA_DIR, final_name)
-            
-            # Пока файл существует, увеличиваем счетчик
+            final_path = os.path.join(folder_path, final_name)
+
             while os.path.exists(final_path):
                 final_name = f"{base_name} ({counter}){ext}"
-                final_path = os.path.join(DATA_DIR, final_name)
+                final_path = os.path.join(folder_path, final_name)
                 counter += 1
-            
-            # Записываем контент
+
             with open(final_path, 'w', encoding='utf-8') as f:
                 f.write(content)
-                
-            # Возвращаем данные о новом файле (чтобы JS мог его открыть)
+
             new_file_info = {
                 "id": final_path,
                 "name": final_name.replace('.txt', ''),
                 "type": "file"
             }
-            
             return {"status": "ok", "new_file": new_file_info}
-            
+
         except Exception as e:
             return {"status": "error", "message": str(e)}
         
@@ -776,7 +792,6 @@ class Api:
             project_dir = os.path.join(DATA_DIR, project_name)
             
             os.makedirs(project_dir)
-            print(f"✅ Создан новый проект: {project_name}")
             
             return {"status": "ok", "project_name": project_name}
         
@@ -788,8 +803,7 @@ class Api:
     def upload_audio_to_project(self, project_name):
         """
         Загружает аудиофайлы в СУЩЕСТВУЮЩИЙ проект.
-        После загрузки первого файла переименовывает проект в его имя.
-        Сохраняет порядок файлов в order.json.
+        Если проект пустой - переименовывает его по первому файлу.
         """
         try:
             project_dir = os.path.join(DATA_DIR, project_name)
@@ -800,7 +814,7 @@ class Api:
             # Проверяем, есть ли уже файлы в проекте
             existing_files = [f for f in os.listdir(project_dir)
                             if f.endswith(('.mp3', '.wav', '.m4a', '.ogg', '.flac'))]
-            is_first_upload = len(existing_files) == 0
+            is_empty_project = len(existing_files) == 0
             
             file_types = ('Audio Files (*.mp3;*.wav;*.m4a;*.ogg;*.flac)', 'All files (*.*)')
             result = self.window.create_file_dialog(
@@ -813,7 +827,7 @@ class Api:
                 return {"status": "cancelled"}
             
             uploaded_files = []
-            new_project_name = project_name  # По умолчанию оставляем старое имя
+            new_project_name = project_name
             
             for file_path in result:
                 filename = os.path.basename(file_path)
@@ -829,12 +843,11 @@ class Api:
                 
                 shutil.copy2(file_path, dest_path)
                 uploaded_files.append(os.path.basename(dest_path))
-                print(f"📁 Файл скопирован: {os.path.basename(dest_path)}")
             
-            # ПЕРЕИМЕНОВАНИЕ ПРОЕКТА по имени первого файла
-            if is_first_upload and uploaded_files:
+            # ПЕРЕИМЕНОВАНИЕ пустого проекта по имени первого файла
+            if is_empty_project and uploaded_files:
                 first_file = uploaded_files[0]
-                new_project_name = os.path.splitext(first_file)[0]  # Убираем расширение
+                new_project_name = os.path.splitext(first_file)[0]
                 new_project_dir = os.path.join(DATA_DIR, new_project_name)
                 
                 # Если папка с таким именем уже существует, добавляем (1), (2)...
@@ -847,14 +860,11 @@ class Api:
                 
                 # Переименовываем папку
                 os.rename(project_dir, new_project_dir)
-                print(f"📝 Проект переименован: '{project_name}' → '{new_project_name}'")
                 
                 # Обновляем project_dir после переименования
                 project_dir = new_project_dir
             
             # === РАБОТА С ПОРЯДКОМ ФАЙЛОВ ===
-            
-            # Получаем текущий порядок (или создаём новый)
             order_res = self.get_project_order(new_project_name)
             
             if order_res["status"] == "ok":
@@ -868,21 +878,20 @@ class Api:
                 # Сохраняем обновлённый порядок
                 self.save_project_order(new_project_name, current_order)
                 
-                # Возвращаем файлы в правильном порядке
                 final_files = current_order
             else:
-                # Если не удалось получить порядок - возвращаем отсортированные
                 final_files = sorted(uploaded_files)
             
             return {
                 "status": "ok",
-                "files": final_files,  # Возвращаем в правильном порядке!
+                "files": final_files,
                 "project_name": new_project_name
             }
         
         except Exception as e:
             print(f"❌ Ошибка загрузки: {e}")
             return {"status": "error", "message": str(e)}
+
 
 
 
@@ -902,73 +911,78 @@ class Api:
 
 
     def delete_audio_file(self, project_name, filename):
+        """
+        Удаляет аудиофайл из проекта.
+        Если остаётся 1+ файлов - переименовывает проект по первому файлу.
+        Если файлов не осталось - оставляет пустой проект для новых загрузок.
+        """
         try:
             project_dir = os.path.join(DATA_DIR, project_name)
             audio_path = os.path.join(project_dir, filename)
             
-            if os.path.exists(audio_path):
-                os.remove(audio_path)
-                print(f"🗑️ Удалён файл: {filename} из {project_name}")
-                
-                # Обновляем order.json
-                order_file = os.path.join(project_dir, 'order.json')
-                if os.path.exists(order_file):
+            if not os.path.exists(audio_path):
+                return {"status": "error", "message": "Файл не найден"}
+            
+            # Удаляем файл
+            os.remove(audio_path)
+            
+            # Обновляем order.json (убираем удалённый файл)
+            order_file = os.path.join(project_dir, 'order.json')
+            if os.path.exists(order_file):
+                try:
                     with open(order_file, 'r', encoding='utf-8') as f:
                         order = json.load(f)
                     
-                    # Убираем удалённый файл
                     if filename in order:
                         order.remove(filename)
                         
                         with open(order_file, 'w', encoding='utf-8') as f:
                             json.dump(order, f, ensure_ascii=False, indent=2)
-                
-                # Проверяем, остались ли файлы
-                remaining = [f for f in os.listdir(project_dir)
-                            if f.endswith(('.mp3', '.wav', '.m4a', '.ogg', '.flac'))]
-                
-                # Если пусто - удаляем проект
-                if not remaining:
-                    shutil.rmtree(project_dir)
-                    print(f"🗑️ Проект '{project_name}' удалён (пустой)")
-                
-                return {"status": "ok", "files_remaining": len(remaining)}
+                except Exception as e:
+                    print(f"⚠️ Ошибка обновления order.json: {e}")
             
-            return {"status": "error", "message": "Файл не найден"}
-        
-        except Exception as e:
-            return {"status": "error", "message": str(e)}
-
-
-
-    def get_project_order(self, project_name):
-        """
-        Получает порядок файлов из order.json или создаёт его.
-        """
-        try:
-            project_dir = os.path.join(DATA_DIR, project_name)
-            order_file = os.path.join(project_dir, 'order.json')
+            # Проверяем оставшиеся файлы
+            remaining = [f for f in os.listdir(project_dir)
+                        if f.endswith(('.mp3', '.wav', '.m4a', '.ogg', '.flac'))]
             
-            # Получаем все аудиофайлы
-            audio_files = sorted([f for f in os.listdir(project_dir)
-                                if f.endswith(('.mp3', '.wav', '.m4a', '.ogg', '.flac'))])
+            new_project_name = project_name  # По умолчанию
             
-            # Если order.json существует - загружаем
-            if os.path.exists(order_file):
-                with open(order_file, 'r', encoding='utf-8') as f:
-                    saved_order = json.load(f)
+            if remaining:
+                # Есть файлы - переименовываем проект по первому файлу в порядке
+                order_res = self.get_project_order(project_name)
+                if order_res["status"] == "ok" and order_res["order"]:
+                    first_file = order_res["order"][0]
+                else:
+                    first_file = sorted(remaining)[0]
                 
-                # Убираем удалённые файлы и добавляем новые
-                order = [f for f in saved_order if f in audio_files]
-                new_files = [f for f in audio_files if f not in order]
-                order.extend(new_files)
+                new_project_name = os.path.splitext(first_file)[0]
+                new_project_dir = os.path.join(DATA_DIR, new_project_name)
+                
+                # Если имя проекта изменилось и такая папка не существует
+                if new_project_name != project_name and not os.path.exists(new_project_dir):
+                    os.rename(project_dir, new_project_dir)
+                elif new_project_name != project_name:
+                    # Если папка с таким именем уже есть - добавляем (1), (2)...
+                    counter = 1
+                    original_name = new_project_name
+                    while os.path.exists(new_project_dir):
+                        new_project_name = f"{original_name} ({counter})"
+                        new_project_dir = os.path.join(DATA_DIR, new_project_name)
+                        counter += 1
+                    
+                    os.rename(project_dir, new_project_dir)
             else:
-                # Если нет - используем алфавитный порядок
-                order = audio_files
+                # Нет файлов - оставляем пустой проект (НЕ удаляем!)
+                print(f"")
             
-            return {"status": "ok", "order": order}
+            return {
+                "status": "ok",
+                "files_remaining": len(remaining),
+                "new_project_name": new_project_name  # Возвращаем новое имя
+            }
         
         except Exception as e:
+            print(f"❌ Ошибка удаления: {e}")
             return {"status": "error", "message": str(e)}
 
 
@@ -983,7 +997,6 @@ class Api:
             with open(order_file, 'w', encoding='utf-8') as f:
                 json.dump(order, f, ensure_ascii=False, indent=2)
             
-            print(f"📝 Порядок сохранён для проекта '{project_name}'")
             return {"status": "ok"}
         
         except Exception as e:
@@ -1043,7 +1056,6 @@ class Api:
                     audio_data = f.read()
                 
                 base64_data = base64.b64encode(audio_data).decode('utf-8')
-                print(f"🎵 Аудио закодировано: {len(base64_data)} байт")
                 
                 return {"status": "ok", "data": base64_data}
             
@@ -1059,12 +1071,116 @@ class Api:
             
             if os.path.exists(project_dir):
                 shutil.rmtree(project_dir)
-                print(f"Проект '{project_name}' удалён")
                 return {"status": "ok"}
             
             return {"status": "error", "message": "Проект не найден"}
         except Exception as e:
             return {"status": "error", "message": str(e)}
+        
+
+    def get_project_order(self, project_name):
+        """
+        Возвращает список аудиофайлов проекта в пользовательском порядке.
+        Основан на order.json, при его отсутствии – сортировка по имени.
+        """
+        project_dir = os.path.join(DATA_DIR, project_name)
+        if not os.path.exists(project_dir):
+            return {"status": "error", "message": "Проект не найден"}
+
+        order_path = os.path.join(project_dir, 'order.json')
+        audio_files = [f for f in os.listdir(project_dir)
+                    if f.lower().endswith(('.mp3', '.wav', '.m4a', '.ogg', '.flac'))]
+
+        if not audio_files:
+            return {"status": "ok", "order": []}
+
+        if os.path.exists(order_path):
+            try:
+                with open(order_path, 'r', encoding='utf-8') as f:
+                    order = json.load(f)
+                # фильтруем на случай удалённых файлов
+                order = [f for f in order if f in audio_files]
+                # добавляем новые файлы, которых не было в order.json
+                for f in audio_files:
+                    if f not in order:
+                        order.append(f)
+                return {"status": "ok", "order": order}
+            except Exception as e:
+                print("Ошибка чтения order.json:", e)
+
+        # запасной вариант — сортировка по имени
+        return {"status": "ok", "order": sorted(audio_files)}
+
+    def merge_project_audio(self, project_name):
+        """
+        Объединяет все аудиофайлы проекта в один в пользовательском порядке.
+        Возвращает путь к объединённому файлу.
+        """
+        try:
+            project_dir = os.path.join(DATA_DIR, project_name)
+            if not os.path.exists(project_dir):
+                return {"status": "error", "message": "Проект не найден"}
+
+            order_res = self.get_project_order(project_name)
+            if order_res["status"] != "ok":
+                return order_res
+
+            audio_files = order_res["order"]
+            if not audio_files:
+                return {"status": "error", "message": "В проекте нет аудиофайлов"}
+
+            if len(audio_files) == 1:
+                merged_path = os.path.join(project_dir, audio_files[0])
+                return {"status": "ok", "merged_file": merged_path, "file_count": 1}
+
+            # временный файл для ffmpeg concat
+            filelist_path = os.path.join(project_dir, 'filelist.txt')
+            with open(filelist_path, 'w', encoding='utf-8') as f:
+                for name in audio_files:
+                    path = os.path.join(project_dir, name)
+                    escaped = path.replace("'", "'\\''")
+                    f.write(f"file '{escaped}'\n")
+
+            merged_name = f"{project_name}_merged.mp3"
+            merged_path = os.path.join(project_dir, merged_name)
+            if os.path.exists(merged_path):
+                os.remove(merged_path)
+
+            cmd = [
+                FFMPEG_PATH,
+                '-f', 'concat',
+                '-safe', '0',
+                '-i', filelist_path,
+                '-c', 'copy',
+                '-y',
+                merged_path,
+            ]
+
+            startupinfo = None
+            if os.name == 'nt':
+                startupinfo = subprocess.STARTUPINFO()
+                startupinfo.dwFlags |= subprocess.STARTF_USESHOWWINDOW
+
+            result = subprocess.run(
+                cmd,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                startupinfo=startupinfo,
+                timeout=300,
+            )
+
+            os.remove(filelist_path)
+
+            if result.returncode != 0 or not os.path.exists(merged_path):
+                err = result.stderr.decode('utf-8', errors='ignore')
+                return {"status": "error", "message": f"FFmpeg error: {err[:200]}"}
+
+            return {"status": "ok", "merged_file": merged_path, "file_count": len(audio_files)}
+
+        except Exception as e:
+            return {"status": "error", "message": str(e)}
+
+
         
 def load_heavy_libs():
     """Загрузка тяжелых библиотек"""
