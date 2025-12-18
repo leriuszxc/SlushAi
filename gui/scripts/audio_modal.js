@@ -99,7 +99,7 @@ document.addEventListener('DOMContentLoaded', () => {
     if (transcribeBtn) {
         transcribeBtn.addEventListener('click', () => {
             transcriptionCreated = true;
-            createTranscription();
+            createTranscription(currentProjectName);
         });
     }
 
@@ -177,27 +177,38 @@ document.addEventListener('DOMContentLoaded', () => {
         if (title) title.textContent = 'У вас нет загруженных аудио файлов';
     }
 
-    function deleteAudioFile(filename) {
-        if (!confirm(`Удалить файл "${filename}"?`)) return;
+    async function deleteAudioFile(filename) {
+        const confirmed = await window.showDeleteConfirm('Вы уверены что хотите удалить это аудио?');
+        
+        if (!confirmed) return;
         
         if (window.pywebview && window.pywebview.api) {
-            window.pywebview.api.delete_audio_file(filename).then(res => {
+            window.pywebview.api.delete_audio_file(currentProjectName, filename).then(res => {
                 if (res.status === 'ok') {
-                    // Обновляем список
-                    window.pywebview.api.get_project_files(currentProjectName).then(res => {
-                        if (res.status === 'ok' && res.files.length > 0) {
+                    // ⚠️ Обновляем имя проекта, если оно изменилось
+                    if (res.new_project_name && res.new_project_name !== currentProjectName) {
+                        console.log(`Проект переименован: ${currentProjectName} → ${res.new_project_name}`);
+                        currentProjectName = res.new_project_name;
+                    }
+                    
+                    if (res.files_remaining > 0) {
+                        // Обновляем список файлов
+                        window.pywebview.api.get_project_files(currentProjectName).then(res => {
                             displayAudioFiles(res.files);
-                        } else {
-                            showAudioEmptyState();
-                            if (transcribeBtn) transcribeBtn.style.display = 'none';
-                        }
-                    });
+                        });
+                    } else {
+                        // Проект пустой - показываем пустое состояние (но НЕ удаляем проект)
+                        showAudioEmptyState();
+                        if (transcribeBtn) transcribeBtn.style.display = 'none';
+                    }
                 } else {
                     alert('Ошибка: ' + res.message);
                 }
             });
         }
     }
+
+
 
     function moveAudioFile(index, direction) {
         if (!currentProjectName) {
@@ -221,8 +232,56 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
 
-    function createTranscription() {
-        alert('Создание транскрибации (функционал будет добавлен позже)');
+    async function createTranscription(projectName) {
+        if (!projectName) {
+            alert('Ошибка: проект не определён');
+            return;
+        }
+
+        if (!window.pywebview || !window.pywebview.api) {
+            alert('Backend не подключен.');
+            return;
+        }
+
+        // закрываем модалку с аудио
         closeAudioModal();
+
+        // показываем тост прогресса
+        if (typeof showToast === 'function') {
+            showToast();
+        }
+
+        try {
+            const res = await window.pywebview.api.create_transcription(projectName);
+
+            if (typeof hideToast === 'function') {
+                hideToast();
+            }
+
+            if (res.status === 'ok') {
+                // обновляем файловое дерево
+                if (typeof window.loadFileSystem === 'function') {
+                    await window.loadFileSystem();
+                }
+
+                // автоматически открыть созданный текст
+                if (res.new_file && typeof window.editFileFromOutside === 'function') {
+                    setTimeout(() => {
+                        window.editFileFromOutside(res.new_file.id);
+                    }, 300);
+                }
+
+                alert('Транскрибация выполнена успешно.');
+            } else {
+                alert('Ошибка транскрибации: ' + res.message);
+            }
+        } catch (err) {
+            if (typeof hideToast === 'function') {
+                hideToast();
+            }
+            console.error(err);
+            alert('Критическая ошибка: ' + err);
+        }
     }
+
 });

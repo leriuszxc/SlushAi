@@ -585,7 +585,7 @@ window.renderFileSystem = render;
             if (items[i].id === id) {
                 items.splice(i, 1);
                 return true;
-            }lecture-meta
+            }
             if (items[i].children) {
                 if (removeItemFromTree(items[i].children, id)) return true;
             }
