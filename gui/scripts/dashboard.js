@@ -13,4 +13,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Инициализация транскрибации
     if (typeof initTranscription === 'function') initTranscription();
+
+    // Инициализация функций 
+    if (typeof initFeaturesNavigation === 'function') initFeaturesNavigation();
 });
